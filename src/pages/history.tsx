@@ -98,7 +98,7 @@ export default function History({ onEdit }: { onEdit: (raw: RawInputs, id: numbe
                 >
                   <div className={`shrink-0 rounded-xl px-3 py-2 text-center min-w-[70px] ${positive ? "bg-primary/10" : "bg-destructive/10"}`}>
                     <p className={`text-base font-bold leading-tight ${positive ? "text-primary" : "text-destructive"}`}>
-                      {positive ? "+" : "−"}{aed(item.profit)}
+                      {positive ? "" : "−"}{aed(item.profit)}
                     </p>
                     <p className={`text-[10px] font-semibold mt-0.5 ${positive ? "text-primary/70" : "text-destructive/70"}`}>
                       {fmt(profitPct)}%
@@ -130,13 +130,13 @@ export default function History({ onEdit }: { onEdit: (raw: RawInputs, id: numbe
                     <div className="grid grid-cols-2 gap-2 mt-3">
                       <div className={`rounded-xl p-3 text-center ${positive ? "bg-primary/8" : "bg-destructive/8"}`}>
                         <p className={`text-base font-bold ${positive ? "text-primary" : "text-destructive"}`}>
-                          {positive ? "+" : "−"}{aed(item.profit)}
+                          {positive ? "" : "−"}{aed(item.profit)}
                         </p>
                         <p className="text-[11px] text-muted-foreground mt-0.5">Profit</p>
                       </div>
                       <div className={`rounded-xl p-3 text-center ${positive ? "bg-primary/8" : "bg-destructive/8"}`}>
                         <p className={`text-xl font-bold ${positive ? "text-primary" : "text-destructive"}`}>
-                          {positive ? "+" : ""}{fmt(profitPct)}%
+                          {fmt(profitPct)}%
                         </p>
                         <p className="text-[11px] text-muted-foreground mt-0.5">Profit %</p>
                       </div>
