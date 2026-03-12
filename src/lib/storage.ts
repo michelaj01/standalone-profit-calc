@@ -72,6 +72,43 @@ export function useCreateItem() {
   });
 }
 
+export function useUpdateItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: CreateItemRequest }): Promise<Item> => {
+      const items = getItems();
+      const idx = items.findIndex(i => i.id === id);
+      if (idx === -1) throw new Error("Item not found");
+      const acquisitionCost = data.acquisitionCost;
+      const renovationCost = data.renovationCost ?? 0;
+      const totalCost = acquisitionCost + renovationCost;
+      const salePrice = data.salePrice;
+      const profit = salePrice - totalCost;
+      const profitMargin = salePrice !== 0 ? (profit / salePrice) * 100 : 0;
+      const roi = totalCost !== 0 ? (profit / totalCost) * 100 : 0;
+      const updated: Item = {
+        ...items[idx],
+        name: data.name,
+        acquisitionCost,
+        renovationCost,
+        costItems: data.costItems ?? [],
+        totalCost,
+        salePrice,
+        profit,
+        profitMargin,
+        roi,
+        rawInputs: data.rawInputs,
+      };
+      items[idx] = updated;
+      saveItems(items);
+      return updated;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["items"] });
+    },
+  });
+}
+
 export function useDeleteItem() {
   const queryClient = useQueryClient();
   return useMutation({
