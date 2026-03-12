@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useListItems, useDeleteItem } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
+import type { RawInputs } from "@/lib/types";
 
 function fmt(val: number) {
   return val.toLocaleString("en-AE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -10,21 +11,7 @@ function aed(val: number) {
   return `AED ${fmt(Math.abs(val))}`;
 }
 
-function ProfitBadge({ value, label }: { value: number; label: string }) {
-  const positive = value >= 0;
-  return (
-    <div className={`flex flex-col items-center rounded-xl px-3 py-2.5 ${positive ? "bg-primary/10" : "bg-destructive/10"}`}>
-      <span className={`text-lg font-bold leading-tight ${positive ? "text-primary" : "text-destructive"}`}>
-        {label}
-      </span>
-      <span className="text-[10px] font-medium text-muted-foreground mt-0.5 uppercase tracking-wide">
-        {label.includes("%") || label.includes("$") ? (value >= 0 ? "Profit" : "Loss") : ""}
-      </span>
-    </div>
-  );
-}
-
-export default function History() {
+export default function History({ onEdit }: { onEdit: (raw: RawInputs) => void }) {
   const { data: items = [], isLoading, refetch } = useListItems();
   const deleteItem = useDeleteItem();
   const { toast } = useToast();
@@ -61,7 +48,6 @@ export default function History() {
         <p className="text-sm text-muted-foreground">Your tracked items</p>
       </div>
 
-      {/* Summary strip */}
       {totalItems > 0 && (
         <div className="grid grid-cols-3 gap-2">
           <div className="bg-card border border-card-border rounded-xl p-3 text-center shadow-sm">
@@ -83,7 +69,6 @@ export default function History() {
         </div>
       )}
 
-      {/* Cards */}
       {items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
           <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
@@ -107,12 +92,10 @@ export default function History() {
                 key={item.id}
                 className={`bg-card border rounded-2xl shadow-sm overflow-hidden transition-all ${positive ? "border-card-border" : "border-destructive/30"}`}
               >
-                {/* Card header — always visible */}
                 <button
                   className="w-full text-left px-4 pt-4 pb-3 flex items-start gap-3 active:bg-muted/50 transition"
                   onClick={() => setExpandedId(isExpanded ? null : item.id)}
                 >
-                  {/* Profit pill */}
                   <div className={`shrink-0 rounded-xl px-3 py-2 text-center min-w-[70px] ${positive ? "bg-primary/10" : "bg-destructive/10"}`}>
                     <p className={`text-base font-bold leading-tight ${positive ? "text-primary" : "text-destructive"}`}>
                       {positive ? "+" : "−"}{aed(item.profit)}
@@ -122,7 +105,6 @@ export default function History() {
                     </p>
                   </div>
 
-                  {/* Name + key numbers */}
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-foreground text-base leading-tight truncate">{item.name}</p>
                     <p className="text-xs text-muted-foreground mt-1">
@@ -135,7 +117,6 @@ export default function History() {
                     )}
                   </div>
 
-                  {/* Chevron */}
                   <svg
                     className={`w-4 h-4 shrink-0 text-muted-foreground transition-transform mt-1 ${isExpanded ? "rotate-180" : ""}`}
                     fill="none" stroke="currentColor" viewBox="0 0 24 24"
@@ -144,10 +125,8 @@ export default function History() {
                   </svg>
                 </button>
 
-                {/* Expanded detail block */}
                 {isExpanded && (
                   <div className="px-4 pb-4 border-t border-border/60">
-                    {/* Metrics 2x2 grid */}
                     <div className="grid grid-cols-2 gap-2 mt-3">
                       <div className={`rounded-xl p-3 text-center ${positive ? "bg-primary/8" : "bg-destructive/8"}`}>
                         <p className={`text-base font-bold ${positive ? "text-primary" : "text-destructive"}`}>
@@ -175,7 +154,6 @@ export default function History() {
                       </div>
                     </div>
 
-                    {/* Cost breakdown */}
                     <div className="mt-3 flex flex-col gap-1.5 text-xs text-muted-foreground">
                       <div className="flex justify-between">
                         <span>Acquisition</span>
@@ -196,7 +174,7 @@ export default function History() {
                         <span className="font-medium text-foreground">{aed(item.salePrice)}</span>
                       </div>
                     </div>
-                    {/* Bar */}
+
                     <div className="mt-2">
                       <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
                         <div
@@ -209,25 +187,37 @@ export default function History() {
                       </p>
                     </div>
 
-                    {/* Footer: date + delete */}
-                    <div className="flex items-center justify-between mt-4">
+                    <div className="flex items-center justify-between mt-4 gap-2">
                       <p className="text-xs text-muted-foreground">
                         Saved {new Date(item.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                       </p>
-                      <button
-                        onClick={() => handleDelete(item.id)}
-                        disabled={deletingId === item.id}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-destructive bg-destructive/10 hover:bg-destructive/20 transition disabled:opacity-40"
-                      >
-                        {deletingId === item.id ? (
-                          <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
+                      <div className="flex items-center gap-2">
+                        {item.rawInputs && (
+                          <button
+                            onClick={() => onEdit(item.rawInputs!)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 transition"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            Edit
+                          </button>
                         )}
-                        Remove
-                      </button>
+                        <button
+                          onClick={() => handleDelete(item.id)}
+                          disabled={deletingId === item.id}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-destructive bg-destructive/10 hover:bg-destructive/20 transition disabled:opacity-40"
+                        >
+                          {deletingId === item.id ? (
+                            <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          )}
+                          Remove
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
