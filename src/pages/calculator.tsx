@@ -287,6 +287,7 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
   const [renoItems, setRenoItems] = useState<CostItem[]>([newCostItem()]);
   const [salePrice, setSalePrice] = useState("");
   const [downPct, setDownPct]     = useState("20");
+  const [localEditingId, setLocalEditingId] = useState<number | null>(null);
 
   // Mortgage interest tracker (informational only — does not affect profit)
   const [showMortgageTracker, setShowMortgageTracker] = useState(false);
@@ -431,11 +432,20 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
     onLoadComplete?.();
   }, [loadData]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  function resetForm() {
+    setName(""); setPropertyPrice(""); setBankProcFee(""); setValuationFee(""); setNocFee(""); setServiceFee(""); setFeesPopulated(false);
+    setMouPrice(""); setBankValuation(""); setGapPaymentOvr(null); setShowAdvanced(false);
+    setAgencyFeeOvr(null); setDldFeeOvr(null); setTrusteeFeeOvr(null); setMortgageRegOvr(null);
+    setRenoItems([newCostItem()]); setSalePrice(""); setDownPct("20");
+    setLocalEditingId(null);
+  }
+
   async function handleSave() {
     if (savingRef.current) return;
     if (!name.trim()) { toast({ title: "Enter a property name", variant: "destructive" }); return; }
     if (!propPrice || !sale) { toast({ title: "Enter property price and sale price", variant: "destructive" }); return; }
     savingRef.current = true;
+    const activeId = editingId || localEditingId;
     try {
       const validReno = renoItems.filter(i => i.label.trim() && n(i.amount) > 0);
       const rawInputs: RawInputs = {
@@ -465,17 +475,15 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
         salePrice: sale,
         rawInputs,
       };
-      if (editingId) {
-        await updateItem.mutateAsync({ id: editingId, data: itemData });
+      if (activeId) {
+        await updateItem.mutateAsync({ id: activeId, data: itemData });
         toast({ title: "Property updated!" });
+        resetForm();
       } else {
-        await createItem.mutateAsync({ data: itemData });
-        toast({ title: "Property saved!" });
+        const created = await createItem.mutateAsync({ data: itemData });
+        setLocalEditingId(created.id);
+        toast({ title: "Property saved!", description: "Keep editing or tap 'New Property' to start fresh." });
       }
-      setName(""); setPropertyPrice(""); setBankProcFee(""); setValuationFee(""); setNocFee(""); setServiceFee(""); setFeesPopulated(false);
-      setMouPrice(""); setBankValuation(""); setGapPaymentOvr(null); setShowAdvanced(false);
-      setAgencyFeeOvr(null); setDldFeeOvr(null); setTrusteeFeeOvr(null); setMortgageRegOvr(null);
-      setRenoItems([newCostItem()]); setSalePrice(""); setDownPct("20");
     } finally {
       savingRef.current = false;
     }
@@ -816,8 +824,16 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
 
           <button type="button" onClick={handleSave} disabled={createItem.isPending || updateItem.isPending}
             className="w-full bg-primary text-primary-foreground rounded-2xl py-4 text-sm font-black tracking-wide active:opacity-90 transition disabled:opacity-50 shadow-lg shadow-primary/20">
-            {(createItem.isPending || updateItem.isPending) ? (editingId ? "Updating…" : "Saving…") : (editingId ? "Update Property" : "Save Property")}
+            {(createItem.isPending || updateItem.isPending)
+              ? ((editingId || localEditingId) ? "Updating…" : "Saving…")
+              : ((editingId || localEditingId) ? "Update Property" : "Save Property")}
           </button>
+          {localEditingId && (
+            <button type="button" onClick={resetForm}
+              className="w-full mt-2 py-3 text-sm font-bold text-muted-foreground active:opacity-60 transition">
+              + New Property
+            </button>
+          )}
         </div>
 
         {/* ─────────────────────────────────────────────────────── */}
