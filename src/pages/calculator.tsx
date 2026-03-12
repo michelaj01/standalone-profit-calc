@@ -50,9 +50,9 @@ const DEFAULTS = {
 
 const TIERS = [
   { label: "Breakeven",    minProfit: 0,       maxProfit: 300_000,  targetProfit: 0,       color: "text-slate-500",   activeColor: "text-slate-700", bg: "bg-slate-50 dark:bg-slate-800/40",   activeBg: "bg-slate-100 dark:bg-slate-800",           ring: "ring-slate-400",  desc: "Zero profit" },
-  { label: "Conservative", minProfit: 300_000, maxProfit: 500_000,  targetProfit: 300_000, color: "text-blue-500",    activeColor: "text-blue-600",  bg: "bg-blue-50 dark:bg-blue-950/40",     activeBg: "bg-blue-100 dark:bg-blue-900/60",          ring: "ring-blue-500",   desc: "+AED 300K profit" },
-  { label: "Moderate",     minProfit: 500_000, maxProfit: 800_000,  targetProfit: 500_000, color: "text-emerald-600", activeColor: "text-emerald-700", bg: "bg-green-50 dark:bg-green-950/40", activeBg: "bg-emerald-100 dark:bg-emerald-900/60",    ring: "ring-emerald-500", desc: "+AED 500K profit" },
-  { label: "Ambitious",    minProfit: 800_000, maxProfit: Infinity, targetProfit: 800_000, color: "text-amber-500",   activeColor: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-950/40",   activeBg: "bg-amber-100 dark:bg-amber-900/60",        ring: "ring-amber-500",  desc: "+AED 800K profit" },
+  { label: "Conservative", minProfit: 300_000, maxProfit: 500_000,  targetProfit: 300_000, color: "text-blue-500",    activeColor: "text-blue-600",  bg: "bg-blue-50 dark:bg-blue-950/40",     activeBg: "bg-blue-100 dark:bg-blue-900/60",          ring: "ring-blue-500",   desc: "AED 300K profit" },
+  { label: "Moderate",     minProfit: 500_000, maxProfit: 800_000,  targetProfit: 500_000, color: "text-emerald-600", activeColor: "text-emerald-700", bg: "bg-green-50 dark:bg-green-950/40", activeBg: "bg-emerald-100 dark:bg-emerald-900/60",    ring: "ring-emerald-500", desc: "AED 500K profit" },
+  { label: "Ambitious",    minProfit: 800_000, maxProfit: Infinity, targetProfit: 800_000, color: "text-amber-500",   activeColor: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-950/40",   activeBg: "bg-amber-100 dark:bg-amber-900/60",        ring: "ring-amber-500",  desc: "AED 800K profit" },
 ];
 
 function getActiveTier(profit: number): string | null {
@@ -929,7 +929,7 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
                     <div className="flex flex-col items-end gap-0.5">
                       <span className={`text-sm font-black tabular-nums ${displayPositive ? tier.color : "text-muted-foreground"}`}>
                         {displayPositive
-                          ? `+AED ${displayProfit.toLocaleString("en-AE", { maximumFractionDigits: 0 })}`
+                          ? `AED ${displayProfit.toLocaleString("en-AE", { maximumFractionDigits: 0 })}`
                           : displayProfit === 0 ? "AED 0" : `−AED ${Math.abs(displayProfit).toLocaleString("en-AE", { maximumFractionDigits: 0 })}`}
                       </span>
                       <span className={`text-xs font-bold tabular-nums ${displayPositive ? tier.color : "text-muted-foreground"}`}>
