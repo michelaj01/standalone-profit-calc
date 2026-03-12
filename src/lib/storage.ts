@@ -44,6 +44,7 @@ function createItemFromRequest(data: CreateItemRequest): Item {
     profit,
     profitMargin,
     roi,
+    rawInputs: data.rawInputs,
     createdAt: new Date().toISOString(),
   };
 }
