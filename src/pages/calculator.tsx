@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { useCreateItem } from "@/lib/storage";
+import { useCreateItem, useUpdateItem } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
 import type { RawInputs } from "@/lib/types";
 
@@ -245,7 +245,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 // ─── main component ────────────────────────────────────────────────────────
 
-export default function Calculator({ loadData, onLoadComplete }: { loadData?: RawInputs | null; onLoadComplete?: () => void }) {
+export default function Calculator({ loadData, editingId, onLoadComplete }: { loadData?: RawInputs | null; editingId?: number | null; onLoadComplete?: () => void }) {
   const [name, setName] = useState("");
 
   const [propertyPrice, setPropertyPrice] = useState("");
@@ -289,6 +289,7 @@ export default function Calculator({ loadData, onLoadComplete }: { loadData?: Ra
 
   const { toast } = useToast();
   const createItem = useCreateItem();
+  const updateItem = useUpdateItem();
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   // ── derived acquisition ────────────────────────────────────────────────
@@ -431,17 +432,21 @@ export default function Calculator({ loadData, onLoadComplete }: { loadData?: Ra
       renoItems: renoItems.map(({ id, label, amount }) => ({ id, label, amount })),
       salePrice,
     };
-    await createItem.mutateAsync({
-      data: {
-        name: name.trim(),
-        acquisitionCost: acqTotal,
-        renovationCost: renoTotal || undefined,
-        costItems: validReno.length > 0 ? validReno.map(i => ({ label: i.label.trim(), amount: n(i.amount) })) : undefined,
-        salePrice: sale,
-        rawInputs,
-      },
-    });
-    toast({ title: "Property saved!" });
+    const itemData = {
+      name: name.trim(),
+      acquisitionCost: acqTotal,
+      renovationCost: renoTotal || undefined,
+      costItems: validReno.length > 0 ? validReno.map(i => ({ label: i.label.trim(), amount: n(i.amount) })) : undefined,
+      salePrice: sale,
+      rawInputs,
+    };
+    if (editingId) {
+      await updateItem.mutateAsync({ id: editingId, data: itemData });
+      toast({ title: "Property updated!" });
+    } else {
+      await createItem.mutateAsync({ data: itemData });
+      toast({ title: "Property saved!" });
+    }
     setName(""); setPropertyPrice(""); setBankProcFee(""); setValuationFee(""); setNocFee(""); setServiceFee(""); setFeesPopulated(false);
     setMouPrice(""); setBankValuation(""); setGapPaymentOvr(null); setShowAdvanced(false);
     setAgencyFeeOvr(null); setDldFeeOvr(null); setTrusteeFeeOvr(null); setMortgageRegOvr(null);
@@ -740,9 +745,9 @@ export default function Calculator({ loadData, onLoadComplete }: { loadData?: Ra
           </div>
           <p className="text-xs text-muted-foreground mt-1.5 mb-4">Target selling price</p>
 
-          <button type="button" onClick={handleSave} disabled={createItem.isPending}
+          <button type="button" onClick={handleSave} disabled={createItem.isPending || updateItem.isPending}
             className="w-full bg-primary text-primary-foreground rounded-2xl py-4 text-sm font-black tracking-wide active:opacity-90 transition disabled:opacity-50 shadow-lg shadow-primary/20">
-            {createItem.isPending ? "Saving…" : "Save Property"}
+            {(createItem.isPending || updateItem.isPending) ? (editingId ? "Updating…" : "Saving…") : (editingId ? "Update Property" : "Save Property")}
           </button>
         </div>
 
