@@ -11,7 +11,7 @@ function aed(val: number) {
   return `AED ${fmt(Math.abs(val))}`;
 }
 
-export default function History({ onEdit }: { onEdit: (raw: RawInputs) => void }) {
+export default function History({ onEdit }: { onEdit: (raw: RawInputs, id: number) => void }) {
   const { data: items = [], isLoading, refetch } = useListItems();
   const deleteItem = useDeleteItem();
   const { toast } = useToast();
@@ -194,7 +194,7 @@ export default function History({ onEdit }: { onEdit: (raw: RawInputs) => void }
                       <div className="flex items-center gap-2">
                         {item.rawInputs && (
                           <button
-                            onClick={() => onEdit(item.rawInputs!)}
+                            onClick={() => onEdit(item.rawInputs!, item.id)}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 transition"
                           >
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
