@@ -428,6 +428,8 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
       ? loadData.renoItems.map(i => ({ ...i, scanning: false, invoices: (i as CostItem).invoices ?? [] }))
       : [newCostItem()]);
     setSalePrice(loadData.salePrice);
+    // Capture the editing ID now — onLoadComplete will clear it from the parent
+    if (editingId) setLocalEditingId(editingId);
     setFeesPopulated(true);
     onLoadComplete?.();
   }, [loadData]); // eslint-disable-line react-hooks/exhaustive-deps
