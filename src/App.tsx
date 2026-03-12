@@ -10,10 +10,17 @@ const queryClient = new QueryClient();
 function App() {
   const [tab, setTab] = useState<"calc" | "history">("calc");
   const [loadData, setLoadData] = useState<RawInputs | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
 
-  function handleLoad(raw: RawInputs) {
+  function handleEdit(raw: RawInputs, id: number) {
     setLoadData(raw);
+    setEditingId(id);
     setTab("calc");
+  }
+
+  function handleLoadComplete() {
+    setLoadData(null);
+    setEditingId(null);
   }
 
   return (
@@ -21,8 +28,8 @@ function App() {
       <div className="min-h-screen bg-background flex flex-col max-w-md mx-auto relative">
         <div className="flex-1 overflow-y-auto pb-20">
           {tab === "calc"
-            ? <Calculator loadData={loadData} onLoadComplete={() => setLoadData(null)} />
-            : <History onEdit={handleLoad} />}
+            ? <Calculator loadData={loadData} editingId={editingId} onLoadComplete={handleLoadComplete} />
+            : <History onEdit={handleEdit} />}
         </div>
 
         <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-card border-t border-card-border z-50 flex">
