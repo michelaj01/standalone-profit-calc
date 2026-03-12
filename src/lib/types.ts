@@ -1,6 +1,27 @@
 export interface CostItem {
+  id: string;
   label: string;
-  amount: number;
+  amount: string;
+}
+
+export interface RawInputs {
+  name: string;
+  propertyPrice: string;
+  mouPrice: string;
+  bankValuation: string;
+  showAdvanced: boolean;
+  gapPaymentOvr: string | null;
+  agencyFeeOvr: string | null;
+  dldFeeOvr: string | null;
+  trusteeFeeOvr: string | null;
+  mortgageRegOvr: string | null;
+  bankProcFee: string;
+  valuationFee: string;
+  nocFee: string;
+  serviceFee: string;
+  downPaymentPct: string;
+  renoItems: CostItem[];
+  salePrice: string;
 }
 
 export interface Item {
@@ -8,13 +29,14 @@ export interface Item {
   name: string;
   acquisitionCost: number;
   renovationCost: number;
-  costItems: CostItem[];
+  costItems: { label: string; amount: number }[];
   totalCost: number;
   salePrice: number;
   profit: number;
   profitMargin: number;
   roi: number;
   notes?: string;
+  rawInputs?: RawInputs;
   createdAt: string;
 }
 
@@ -22,6 +44,7 @@ export interface CreateItemRequest {
   name: string;
   acquisitionCost: number;
   renovationCost?: number;
-  costItems?: CostItem[];
+  costItems?: { label: string; amount: number }[];
   salePrice: number;
+  rawInputs?: RawInputs;
 }
