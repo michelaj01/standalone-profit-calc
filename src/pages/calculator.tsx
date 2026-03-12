@@ -214,17 +214,17 @@ function EditableAutoRow({
   }
 
   return (
-    <div className="flex items-center justify-between py-2.5">
-      <div className="flex items-center gap-2">
+    <div className="flex items-center justify-between py-2.5 gap-2">
+      <div className="flex items-center gap-2 min-w-0 flex-1">
         <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isOverridden ? "bg-amber-400" : "bg-emerald-400"}`} />
-        <div className="flex items-baseline gap-1.5">
-          {label && <span className="text-sm text-foreground">{label}</span>}
-          {sub && !isOverridden && <span className="text-[11px] text-muted-foreground">{sub}</span>}
+        <div className="flex flex-wrap items-baseline gap-x-1.5 min-w-0">
+          {label && <span className="text-sm text-foreground whitespace-nowrap">{label}</span>}
+          {sub && !isOverridden && <span className="text-[11px] text-muted-foreground whitespace-nowrap">{sub}</span>}
           {isOverridden && <span className="text-[10px] font-bold text-amber-500 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded-full">edited</span>}
         </div>
       </div>
-      <div className="flex items-center gap-1.5">
-        <span className="text-sm font-semibold tabular-nums text-foreground">{aed(n(value))}</span>
+      <div className="flex items-center gap-1.5 shrink-0">
+        <span className="text-sm font-semibold tabular-nums text-foreground text-right">{aed(n(value))}</span>
         <button type="button" onClick={startEdit}
           className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground active:opacity-70 transition" title="Edit">
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -280,6 +280,12 @@ export default function Calculator() {
   const [salePrice, setSalePrice] = useState("");
   const [downPct, setDownPct]     = useState("20");
 
+  // Mortgage interest tracker (informational only — does not affect profit)
+  const [showMortgageTracker, setShowMortgageTracker] = useState(false);
+  const [mortgageRate,  setMortgageRate]  = useState("");
+  const [mortgageStart, setMortgageStart] = useState("");
+  const [mortgageEnd,   setMortgageEnd]   = useState(() => new Date().toISOString().slice(0, 10));
+
   const { toast } = useToast();
   const createItem = useCreateItem();
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -323,6 +329,26 @@ export default function Calculator() {
   const downPayment    = propertyBase * downFrac;
   const cashOut        = downPayment + gapPaymentN + agencyFee + dldFee + trusteeFee + mortgageReg + manualAcq + renoTotal;
   const mortgageRoiPct = cashOut > 0 ? (profit / cashOut) * 100 : 0;
+
+  // ── mortgage interest tracker (informational) ─────────────────────────
+  const mortgageInterestPaid = (() => {
+    if (!showMortgageTracker || !mortgageRate || !mortgageStart) return 0;
+    const rate = parseFloat(mortgageRate) || 0;
+    const start = new Date(mortgageStart);
+    const end   = mortgageEnd ? new Date(mortgageEnd) : new Date();
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) return 0;
+    const monthsElapsed = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth())
+      + (end.getDate() >= start.getDate() ? 0 : -1);
+    return loanAmount * (rate / 100) * (Math.max(0, monthsElapsed) / 12);
+  })();
+  const mortgageMonthsElapsed = (() => {
+    if (!mortgageStart) return 0;
+    const start = new Date(mortgageStart);
+    const end   = mortgageEnd ? new Date(mortgageEnd) : new Date();
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) return 0;
+    return Math.max(0, (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth())
+      + (end.getDate() >= start.getDate() ? 0 : -1));
+  })();
 
   // ── handlers ──────────────────────────────────────────────────────────
   const updateRenoItem = useCallback((id: string, patch: Partial<CostItem>) =>
@@ -909,6 +935,95 @@ export default function Calculator() {
                   Cash invested: <span className="font-bold text-foreground tabular-nums">{aed(cashOut)}</span>
                   {" "}(down{gapPaymentN > 0 ? " + gap" : ""} + fees + reno)
                 </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ─────────────────────────────────────────────────────── */}
+        {/* Mortgage Interest Tracker (informational)              */}
+        {/* ─────────────────────────────────────────────────────── */}
+        {propPrice > 0 && loanAmount > 0 && (
+          <div className="mx-4 mb-4 bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden border border-slate-200/60 dark:border-slate-700/40">
+            <button
+              type="button"
+              onClick={() => setShowMortgageTracker(v => !v)}
+              className="flex items-center justify-between w-full px-4 py-4 active:opacity-70 transition"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-blue-500/10 rounded-xl flex items-center justify-center shrink-0">
+                  <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-bold text-foreground">Mortgage Interest Tracker</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Informational only — does not affect profit</p>
+                </div>
+              </div>
+              <span className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ${showMortgageTracker ? "bg-blue-500" : "bg-slate-200 dark:bg-slate-600"}`}>
+                <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ${showMortgageTracker ? "translate-x-5" : "translate-x-0"}`} />
+              </span>
+            </button>
+
+            {showMortgageTracker && (
+              <div className="px-4 pb-4 border-t border-slate-100 dark:border-slate-700/50">
+                <div className="mt-3 mb-4 flex items-center justify-between rounded-xl bg-blue-50 dark:bg-blue-950/20 px-3 py-2.5">
+                  <span className="text-xs font-semibold text-blue-700 dark:text-blue-400">Loan Amount</span>
+                  <span className="text-sm font-black tabular-nums text-blue-700 dark:text-blue-400">{aed(loanAmount)}</span>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <div>
+                    <label className="block text-[10px] font-black tracking-[0.15em] uppercase text-muted-foreground mb-1.5">Annual Interest Rate</label>
+                    <div className="relative">
+                      <input
+                        type="number" inputMode="decimal" step="0.01" min={0} max={30}
+                        value={mortgageRate}
+                        onChange={e => setMortgageRate(e.target.value)}
+                        placeholder="e.g. 4.5"
+                        className="w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 pl-3 pr-8 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-blue-400 transition"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">%</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-black tracking-[0.15em] uppercase text-muted-foreground mb-1.5">Start Date</label>
+                      <input
+                        type="date"
+                        value={mortgageStart}
+                        onChange={e => setMortgageStart(e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-blue-400 transition"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black tracking-[0.15em] uppercase text-muted-foreground mb-1.5">End Date</label>
+                      <input
+                        type="date"
+                        value={mortgageEnd}
+                        onChange={e => setMortgageEnd(e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-blue-400 transition"
+                      />
+                    </div>
+                  </div>
+
+                  {mortgageStart && mortgageRate && mortgageMonthsElapsed > 0 && (
+                    <div className="rounded-2xl bg-blue-500 p-4 mt-1">
+                      <p className="text-blue-100 text-[10px] font-black uppercase tracking-widest mb-1">Interest Paid So Far</p>
+                      <p className="text-white text-2xl font-black tabular-nums">{aed(mortgageInterestPaid)}</p>
+                      <div className="flex items-center justify-between mt-2">
+                        <p className="text-blue-200 text-xs">{mortgageMonthsElapsed} months × {mortgageRate}% p.a.</p>
+                        <p className="text-blue-200 text-xs">~{aed(Math.round(mortgageInterestPaid / mortgageMonthsElapsed))}/mo</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {(!mortgageStart || !mortgageRate) && (
+                    <p className="text-[11px] text-muted-foreground text-center py-2">Enter interest rate and start date to calculate</p>
+                  )}
+                </div>
               </div>
             )}
           </div>
