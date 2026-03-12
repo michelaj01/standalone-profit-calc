@@ -114,21 +114,28 @@ function AEDRowInput({ value, onChange, placeholder }: { value: string; onChange
 
 // ─── cost items ────────────────────────────────────────────────────────────
 
+interface InvoiceAttachment {
+  id: string;
+  name: string;
+  dataUrl: string;
+}
+
 interface CostItem {
   id: string;
   label: string;
   amount: string;
   scanning: boolean;
+  invoices: InvoiceAttachment[];
 }
 
 function newCostItem(): CostItem {
-  return { id: crypto.randomUUID(), label: "", amount: "", scanning: false };
+  return { id: crypto.randomUUID(), label: "", amount: "", scanning: false, invoices: [] };
 }
 
-async function fileToBase64(file: File): Promise<string> {
+async function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve((reader.result as string).split(",")[1]);
+    reader.onload = () => resolve(reader.result as string);
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
@@ -359,10 +366,17 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
   const removeRenoItem = useCallback((id: string) =>
     setRenoItems(prev => prev.length > 1 ? prev.filter(i => i.id !== id) : prev), []);
 
+  const addInvoice = useCallback((id: string, inv: InvoiceAttachment) =>
+    setRenoItems(prev => prev.map(i => i.id === id ? { ...i, invoices: [...i.invoices, inv] } : i)), []);
+
+  const removeInvoice = useCallback((itemId: string, invId: string) =>
+    setRenoItems(prev => prev.map(i => i.id === itemId ? { ...i, invoices: i.invoices.filter(v => v.id !== invId) } : i)), []);
+
   const handleScan = useCallback(async (id: string, file: File) => {
     updateRenoItem(id, { scanning: true });
     try {
-      const base64 = await fileToBase64(file);
+      const dataUrl = await fileToDataUrl(file);
+      const base64 = dataUrl.split(",")[1];
       const res = await fetch("/api/extract-amount", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -370,18 +384,25 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
       });
       if (!res.ok) throw new Error("Failed");
       const { amount } = await res.json() as { amount: number };
+      addInvoice(id, { id: crypto.randomUUID(), name: file.name || `invoice-${Date.now()}.jpg`, dataUrl });
       if (amount > 0) {
         updateRenoItem(id, { amount: amount.toString(), scanning: false });
-        toast({ title: `Scanned: ${aed(amount)}` });
+        toast({ title: `Scanned: ${aed(amount)}`, description: "Invoice photo saved" });
       } else {
         updateRenoItem(id, { scanning: false });
-        toast({ title: "Could not read amount", description: "Enter it manually", variant: "destructive" });
+        toast({ title: "Invoice photo saved", description: "Couldn't read amount — enter manually" });
       }
     } catch {
       updateRenoItem(id, { scanning: false });
       toast({ title: "Scan failed", description: "Enter amount manually", variant: "destructive" });
     }
-  }, [updateRenoItem, toast]);
+  }, [updateRenoItem, addInvoice, toast]);
+
+  const handleAttach = useCallback(async (id: string, file: File) => {
+    const dataUrl = await fileToDataUrl(file);
+    addInvoice(id, { id: crypto.randomUUID(), name: file.name || `invoice-${Date.now()}.jpg`, dataUrl });
+    toast({ title: "Invoice attached" });
+  }, [addInvoice, toast]);
 
   // Populate all fields from a saved rawInputs snapshot (edit flow)
   useEffect(() => {
@@ -402,7 +423,7 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
     setServiceFee(loadData.serviceFee);
     setDownPct(loadData.downPaymentPct);
     setRenoItems(loadData.renoItems.length > 0
-      ? loadData.renoItems.map(i => ({ ...i, scanning: false }))
+      ? loadData.renoItems.map(i => ({ ...i, scanning: false, invoices: (i as CostItem).invoices ?? [] }))
       : [newCostItem()]);
     setSalePrice(loadData.salePrice);
     setFeesPopulated(true);
@@ -683,30 +704,71 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
             )}
           </div>
 
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3">
             {renoItems.map((item, idx) => (
-              <div key={item.id} className="flex gap-2 items-center">
-                <input
-                  type="text"
-                  value={item.label}
-                  onChange={e => updateRenoItem(item.id, { label: e.target.value })}
-                  placeholder={`Item ${idx + 1}`}
-                  className="w-24 shrink-0 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition"
-                />
-                <AEDRowInput value={item.amount} onChange={v => updateRenoItem(item.id, { amount: v })} />
-                <ScanButton scanning={item.scanning} onClick={() => fileInputRefs.current[item.id]?.click()} />
-                <input
-                  ref={el => { fileInputRefs.current[item.id] = el; }}
-                  type="file" accept="image/*" capture="environment" className="hidden"
-                  onChange={e => { const f = e.target.files?.[0]; if (f) handleScan(item.id, f); e.target.value = ""; }}
-                />
-                {renoItems.length > 1 && (
-                  <button type="button" onClick={() => removeRenoItem(item.id)}
-                    className="shrink-0 w-8 h-8 flex items-center justify-center rounded-xl text-muted-foreground hover:text-destructive active:opacity-70 transition">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <div key={item.id} className="flex flex-col gap-1.5">
+                {/* Input row */}
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="text"
+                    value={item.label}
+                    onChange={e => updateRenoItem(item.id, { label: e.target.value })}
+                    placeholder={`Item ${idx + 1}`}
+                    className="w-24 shrink-0 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition"
+                  />
+                  <AEDRowInput value={item.amount} onChange={v => updateRenoItem(item.id, { amount: v })} />
+                  {/* Camera: scan + save photo */}
+                  <ScanButton scanning={item.scanning} onClick={() => fileInputRefs.current[`${item.id}-scan`]?.click()} />
+                  <input
+                    ref={el => { fileInputRefs.current[`${item.id}-scan`] = el; }}
+                    type="file" accept="image/*" capture="environment" className="hidden"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) handleScan(item.id, f); e.target.value = ""; }}
+                  />
+                  {/* Paperclip: attach extra photos (no OCR) */}
+                  <button type="button" onClick={() => fileInputRefs.current[`${item.id}-attach`]?.click()}
+                    className="shrink-0 w-10 h-10 flex items-center justify-center rounded-xl border border-input bg-background text-muted-foreground active:bg-muted transition"
+                    title="Attach invoice photo">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                     </svg>
                   </button>
+                  <input
+                    ref={el => { fileInputRefs.current[`${item.id}-attach`] = el; }}
+                    type="file" accept="image/*" multiple className="hidden"
+                    onChange={e => { Array.from(e.target.files || []).forEach(f => handleAttach(item.id, f)); e.target.value = ""; }}
+                  />
+                  {renoItems.length > 1 && (
+                    <button type="button" onClick={() => removeRenoItem(item.id)}
+                      className="shrink-0 w-8 h-8 flex items-center justify-center rounded-xl text-muted-foreground hover:text-destructive active:opacity-70 transition">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                {/* Invoice thumbnails */}
+                {item.invoices.length > 0 && (
+                  <div className="flex gap-2 overflow-x-auto pl-1 pb-1">
+                    {item.invoices.map(inv => (
+                      <div key={inv.id} className="relative shrink-0 w-20 h-20 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-600">
+                        <img src={inv.dataUrl} alt="Invoice" className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 flex items-end justify-between p-1 bg-gradient-to-t from-black/60 to-transparent">
+                          <button type="button" onClick={() => window.open(inv.dataUrl, "_blank")}
+                            className="w-7 h-7 bg-white/90 rounded-lg flex items-center justify-center active:opacity-70" title="View full size">
+                            <svg className="w-3.5 h-3.5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </button>
+                          <button type="button" onClick={() => removeInvoice(item.id, inv.id)}
+                            className="w-7 h-7 bg-white/90 rounded-lg flex items-center justify-center active:opacity-70" title="Remove">
+                            <svg className="w-3.5 h-3.5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             ))}
