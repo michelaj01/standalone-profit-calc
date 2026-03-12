@@ -113,9 +113,9 @@ export default function History({ onEdit }: { onEdit: (raw: RawInputs, id: numbe
                         : `Cost ${aed(item.acquisitionCost)} → Sale ${aed(item.salePrice)}`}
                     </p>
                     <p className="text-[11px] text-muted-foreground/60 mt-0.5">
-                      {new Date(item.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      {new Date(item.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
                       {" · "}
-                      {new Date(item.createdAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+                      {new Date(item.createdAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
                     </p>
                     {item.notes && (
                       <p className="text-xs text-muted-foreground/70 mt-0.5 truncate italic">{item.notes}</p>
