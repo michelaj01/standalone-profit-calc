@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useCreateItem } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
+import type { RawInputs } from "@/lib/types";
 
 // ─── formatting ────────────────────────────────────────────────────────────
 
@@ -244,7 +245,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 // ─── main component ────────────────────────────────────────────────────────
 
-export default function Calculator() {
+export default function Calculator({ loadData, onLoadComplete }: { loadData?: RawInputs | null; onLoadComplete?: () => void }) {
   const [name, setName] = useState("");
 
   const [propertyPrice, setPropertyPrice] = useState("");
@@ -381,10 +382,55 @@ export default function Calculator() {
     }
   }, [updateRenoItem, toast]);
 
+  // Populate all fields from a saved rawInputs snapshot (edit flow)
+  useEffect(() => {
+    if (!loadData) return;
+    setName(loadData.name);
+    setPropertyPrice(loadData.propertyPrice);
+    setMouPrice(loadData.mouPrice);
+    setBankValuation(loadData.bankValuation);
+    setShowAdvanced(loadData.showAdvanced);
+    setGapPaymentOvr(loadData.gapPaymentOvr);
+    setAgencyFeeOvr(loadData.agencyFeeOvr);
+    setDldFeeOvr(loadData.dldFeeOvr);
+    setTrusteeFeeOvr(loadData.trusteeFeeOvr);
+    setMortgageRegOvr(loadData.mortgageRegOvr);
+    setBankProcFee(loadData.bankProcFee);
+    setValuationFee(loadData.valuationFee);
+    setNocFee(loadData.nocFee);
+    setServiceFee(loadData.serviceFee);
+    setDownPct(loadData.downPaymentPct);
+    setRenoItems(loadData.renoItems.length > 0
+      ? loadData.renoItems.map(i => ({ ...i, scanning: false }))
+      : [newCostItem()]);
+    setSalePrice(loadData.salePrice);
+    setFeesPopulated(true);
+    onLoadComplete?.();
+  }, [loadData]); // eslint-disable-line react-hooks/exhaustive-deps
+
   async function handleSave() {
     if (!name.trim()) { toast({ title: "Enter a property name", variant: "destructive" }); return; }
     if (!propPrice || !sale) { toast({ title: "Enter property price and sale price", variant: "destructive" }); return; }
     const validReno = renoItems.filter(i => i.label.trim() && n(i.amount) > 0);
+    const rawInputs: RawInputs = {
+      name: name.trim(),
+      propertyPrice,
+      mouPrice,
+      bankValuation,
+      showAdvanced,
+      gapPaymentOvr,
+      agencyFeeOvr,
+      dldFeeOvr,
+      trusteeFeeOvr,
+      mortgageRegOvr,
+      bankProcFee,
+      valuationFee,
+      nocFee,
+      serviceFee,
+      downPaymentPct: downPct,
+      renoItems: renoItems.map(({ id, label, amount }) => ({ id, label, amount })),
+      salePrice,
+    };
     await createItem.mutateAsync({
       data: {
         name: name.trim(),
@@ -392,13 +438,14 @@ export default function Calculator() {
         renovationCost: renoTotal || undefined,
         costItems: validReno.length > 0 ? validReno.map(i => ({ label: i.label.trim(), amount: n(i.amount) })) : undefined,
         salePrice: sale,
+        rawInputs,
       },
     });
     toast({ title: "Property saved!" });
     setName(""); setPropertyPrice(""); setBankProcFee(""); setValuationFee(""); setNocFee(""); setServiceFee(""); setFeesPopulated(false);
     setMouPrice(""); setBankValuation(""); setGapPaymentOvr(null); setShowAdvanced(false);
     setAgencyFeeOvr(null); setDldFeeOvr(null); setTrusteeFeeOvr(null); setMortgageRegOvr(null);
-    setRenoItems([newCostItem()]); setSalePrice("");
+    setRenoItems([newCostItem()]); setSalePrice(""); setDownPct("20");
   }
 
   // ──────────────────────────────────────────────────────────────────────
