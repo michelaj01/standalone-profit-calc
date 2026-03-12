@@ -3,21 +3,28 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import Calculator from "@/pages/calculator";
 import History from "@/pages/history";
+import type { RawInputs } from "@/lib/types";
 
 const queryClient = new QueryClient();
 
 function App() {
   const [tab, setTab] = useState<"calc" | "history">("calc");
+  const [loadData, setLoadData] = useState<RawInputs | null>(null);
+
+  function handleLoad(raw: RawInputs) {
+    setLoadData(raw);
+    setTab("calc");
+  }
 
   return (
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen bg-background flex flex-col max-w-md mx-auto relative">
-        {/* Content area with bottom padding for nav */}
         <div className="flex-1 overflow-y-auto pb-20">
-          {tab === "calc" ? <Calculator /> : <History />}
+          {tab === "calc"
+            ? <Calculator loadData={loadData} onLoadComplete={() => setLoadData(null)} />
+            : <History onEdit={handleLoad} />}
         </div>
 
-        {/* Bottom tab bar */}
         <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-card border-t border-card-border z-50 flex">
           <button
             onClick={() => setTab("calc")}
