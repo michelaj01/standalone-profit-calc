@@ -96,12 +96,18 @@ export default function History({ onEdit }: { onEdit: (raw: RawInputs, id: numbe
                   className="w-full text-left px-4 pt-4 pb-3 flex items-start gap-3 active:bg-muted/50 transition"
                   onClick={() => setExpandedId(isExpanded ? null : item.id)}
                 >
-                  <div className={`shrink-0 rounded-xl px-3 py-2 text-center min-w-[70px] ${positive ? "bg-primary/10" : "bg-destructive/10"}`}>
+                  <div className={`shrink-0 rounded-xl px-3 py-2 text-center min-w-[80px] ${positive ? "bg-primary/10" : "bg-destructive/10"}`}>
                     <p className={`text-base font-bold leading-tight ${positive ? "text-primary" : "text-destructive"}`}>
                       {positive ? "" : "−"}{aed(item.profit)}
                     </p>
                     <p className={`text-[10px] font-semibold mt-0.5 ${positive ? "text-primary/70" : "text-destructive/70"}`}>
                       {fmt(profitPct)}%
+                    </p>
+                    <p className="text-[9px] text-muted-foreground/60 mt-1 leading-tight">
+                      {new Date(item.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                    </p>
+                    <p className="text-[9px] text-muted-foreground/60 leading-tight">
+                      {new Date(item.createdAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
                     </p>
                   </div>
 
@@ -111,11 +117,6 @@ export default function History({ onEdit }: { onEdit: (raw: RawInputs, id: numbe
                       {item.renovationCost > 0
                         ? `Cost ${aed(item.totalCost)} (incl. reno) → Sale ${aed(item.salePrice)}`
                         : `Cost ${aed(item.acquisitionCost)} → Sale ${aed(item.salePrice)}`}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground/60 mt-0.5">
-                      {new Date(item.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
-                      {" · "}
-                      {new Date(item.createdAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
                     </p>
                     {item.notes && (
                       <p className="text-xs text-muted-foreground/70 mt-0.5 truncate italic">{item.notes}</p>
@@ -192,10 +193,7 @@ export default function History({ onEdit }: { onEdit: (raw: RawInputs, id: numbe
                       </p>
                     </div>
 
-                    <div className="flex items-center justify-between mt-4 gap-2">
-                      <p className="text-xs text-muted-foreground">
-                        Saved {new Date(item.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                      </p>
+                    <div className="flex items-center justify-end mt-4 gap-2">
                       <div className="flex items-center gap-2">
                         {item.rawInputs && (
                           <button
