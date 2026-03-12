@@ -1,7 +1,14 @@
+export interface InvoiceAttachment {
+  id: string;
+  name: string;
+  dataUrl: string;
+}
+
 export interface CostItem {
   id: string;
   label: string;
   amount: string;
+  invoices?: InvoiceAttachment[];
 }
 
 export interface RawInputs {
