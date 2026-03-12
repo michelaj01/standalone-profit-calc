@@ -298,6 +298,7 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
   const createItem = useCreateItem();
   const updateItem = useUpdateItem();
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const savingRef = useRef(false);
 
   // ── derived acquisition ────────────────────────────────────────────────
   const propPrice      = n(propertyPrice);
@@ -431,47 +432,53 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
   }, [loadData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSave() {
+    if (savingRef.current) return;
     if (!name.trim()) { toast({ title: "Enter a property name", variant: "destructive" }); return; }
     if (!propPrice || !sale) { toast({ title: "Enter property price and sale price", variant: "destructive" }); return; }
-    const validReno = renoItems.filter(i => i.label.trim() && n(i.amount) > 0);
-    const rawInputs: RawInputs = {
-      name: name.trim(),
-      propertyPrice,
-      mouPrice,
-      bankValuation,
-      showAdvanced,
-      gapPaymentOvr,
-      agencyFeeOvr,
-      dldFeeOvr,
-      trusteeFeeOvr,
-      mortgageRegOvr,
-      bankProcFee,
-      valuationFee,
-      nocFee,
-      serviceFee,
-      downPaymentPct: downPct,
-      renoItems: renoItems.map(({ id, label, amount }) => ({ id, label, amount })),
-      salePrice,
-    };
-    const itemData = {
-      name: name.trim(),
-      acquisitionCost: acqTotal,
-      renovationCost: renoTotal || undefined,
-      costItems: validReno.length > 0 ? validReno.map(i => ({ label: i.label.trim(), amount: n(i.amount) })) : undefined,
-      salePrice: sale,
-      rawInputs,
-    };
-    if (editingId) {
-      await updateItem.mutateAsync({ id: editingId, data: itemData });
-      toast({ title: "Property updated!" });
-    } else {
-      await createItem.mutateAsync({ data: itemData });
-      toast({ title: "Property saved!" });
+    savingRef.current = true;
+    try {
+      const validReno = renoItems.filter(i => i.label.trim() && n(i.amount) > 0);
+      const rawInputs: RawInputs = {
+        name: name.trim(),
+        propertyPrice,
+        mouPrice,
+        bankValuation,
+        showAdvanced,
+        gapPaymentOvr,
+        agencyFeeOvr,
+        dldFeeOvr,
+        trusteeFeeOvr,
+        mortgageRegOvr,
+        bankProcFee,
+        valuationFee,
+        nocFee,
+        serviceFee,
+        downPaymentPct: downPct,
+        renoItems: renoItems.map(({ id, label, amount }) => ({ id, label, amount })),
+        salePrice,
+      };
+      const itemData = {
+        name: name.trim(),
+        acquisitionCost: acqTotal,
+        renovationCost: renoTotal || undefined,
+        costItems: validReno.length > 0 ? validReno.map(i => ({ label: i.label.trim(), amount: n(i.amount) })) : undefined,
+        salePrice: sale,
+        rawInputs,
+      };
+      if (editingId) {
+        await updateItem.mutateAsync({ id: editingId, data: itemData });
+        toast({ title: "Property updated!" });
+      } else {
+        await createItem.mutateAsync({ data: itemData });
+        toast({ title: "Property saved!" });
+      }
+      setName(""); setPropertyPrice(""); setBankProcFee(""); setValuationFee(""); setNocFee(""); setServiceFee(""); setFeesPopulated(false);
+      setMouPrice(""); setBankValuation(""); setGapPaymentOvr(null); setShowAdvanced(false);
+      setAgencyFeeOvr(null); setDldFeeOvr(null); setTrusteeFeeOvr(null); setMortgageRegOvr(null);
+      setRenoItems([newCostItem()]); setSalePrice(""); setDownPct("20");
+    } finally {
+      savingRef.current = false;
     }
-    setName(""); setPropertyPrice(""); setBankProcFee(""); setValuationFee(""); setNocFee(""); setServiceFee(""); setFeesPopulated(false);
-    setMouPrice(""); setBankValuation(""); setGapPaymentOvr(null); setShowAdvanced(false);
-    setAgencyFeeOvr(null); setDldFeeOvr(null); setTrusteeFeeOvr(null); setMortgageRegOvr(null);
-    setRenoItems([newCostItem()]); setSalePrice(""); setDownPct("20");
   }
 
   // ──────────────────────────────────────────────────────────────────────
