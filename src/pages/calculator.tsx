@@ -290,10 +290,10 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
   const [localEditingId, setLocalEditingId] = useState<number | null>(null);
 
   // Mortgage interest tracker (informational only — does not affect profit)
-  const [showMortgageTracker, setShowMortgageTracker] = useState(false);
-  const [mortgageRate,  setMortgageRate]  = useState("");
-  const [mortgageStart, setMortgageStart] = useState("");
-  const [mortgageEnd,   setMortgageEnd]   = useState(() => new Date().toISOString().slice(0, 10));
+  const [showMortgageTracker,     setShowMortgageTracker]     = useState(false);
+  const [mortgageRate,            setMortgageRate]            = useState("");
+  const [mortgageMonthlyPayment,  setMortgageMonthlyPayment]  = useState("");
+  const [mortgagePaymentsMade,    setMortgagePaymentsMade]    = useState("");
 
   const { toast } = useToast();
   const createItem = useCreateItem();
@@ -341,24 +341,20 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
   const cashOut        = downPayment + gapPaymentN + agencyFee + dldFee + trusteeFee + mortgageReg + manualAcq + renoTotal;
   const mortgageRoiPct = cashOut > 0 ? (profit / cashOut) * 100 : 0;
 
-  // ── mortgage interest tracker (informational) ─────────────────────────
-  const mortgageInterestPaid = (() => {
-    if (!showMortgageTracker || !mortgageRate || !mortgageStart) return 0;
-    const rate = parseFloat(mortgageRate) || 0;
-    const start = new Date(mortgageStart);
-    const end   = mortgageEnd ? new Date(mortgageEnd) : new Date();
-    if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) return 0;
-    const monthsElapsed = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth())
-      + (end.getDate() >= start.getDate() ? 0 : -1);
-    return loanAmount * (rate / 100) * (Math.max(0, monthsElapsed) / 12);
-  })();
-  const mortgageMonthsElapsed = (() => {
-    if (!mortgageStart) return 0;
-    const start = new Date(mortgageStart);
-    const end   = mortgageEnd ? new Date(mortgageEnd) : new Date();
-    if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) return 0;
-    return Math.max(0, (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth())
-      + (end.getDate() >= start.getDate() ? 0 : -1));
+  // ── mortgage interest tracker — amortization-based (informational) ────
+  const mortgageCalc = (() => {
+    const N       = parseInt(mortgagePaymentsMade) || 0;
+    const P       = n(mortgageMonthlyPayment);
+    const annRate = parseFloat(mortgageRate) || 0;
+    if (!showMortgageTracker || annRate <= 0 || N <= 0 || P <= 0 || loanAmount <= 0)
+      return { valid: false, interestPaid: 0, principalPaid: 0, totalPaid: 0, remainingBalance: loanAmount };
+    const r       = annRate / 100 / 12;
+    const factor  = Math.pow(1 + r, N);
+    const remaining   = Math.max(0, loanAmount * factor - P * (factor - 1) / r);
+    const totalPaid   = P * N;
+    const principalPaid = Math.max(0, loanAmount - remaining);
+    const interestPaid  = Math.max(0, totalPaid - principalPaid);
+    return { valid: true, interestPaid, principalPaid, totalPaid, remainingBalance: remaining };
   })();
 
   // ── handlers ──────────────────────────────────────────────────────────
@@ -1127,40 +1123,57 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
                     </div>
                   </div>
 
+                  {/* Monthly payment + payments made */}
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-[10px] font-black tracking-[0.15em] uppercase text-muted-foreground mb-1.5">Start Date</label>
-                      <input
-                        type="date"
-                        value={mortgageStart}
-                        onChange={e => setMortgageStart(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-blue-400 transition"
-                      />
+                      <label className="block text-[10px] font-black tracking-[0.15em] uppercase text-muted-foreground mb-1.5">Monthly Payment</label>
+                      <div className="relative">
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-muted-foreground">AED</span>
+                        <NumberInput
+                          value={mortgageMonthlyPayment}
+                          onChange={setMortgageMonthlyPayment}
+                          placeholder="0"
+                          className="w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 pl-10 pr-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-blue-400 transition"
+                        />
+                      </div>
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black tracking-[0.15em] uppercase text-muted-foreground mb-1.5">End Date</label>
+                      <label className="block text-[10px] font-black tracking-[0.15em] uppercase text-muted-foreground mb-1.5">Payments Made</label>
                       <input
-                        type="date"
-                        value={mortgageEnd}
-                        onChange={e => setMortgageEnd(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-blue-400 transition"
+                        type="number" inputMode="numeric" min={1} max={600}
+                        value={mortgagePaymentsMade}
+                        onChange={e => setMortgagePaymentsMade(e.target.value)}
+                        placeholder="e.g. 12"
+                        className="w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-blue-400 transition"
                       />
                     </div>
                   </div>
 
-                  {mortgageStart && mortgageRate && mortgageMonthsElapsed > 0 && (
+                  {/* Result */}
+                  {mortgageCalc.valid && (
                     <div className="rounded-2xl bg-blue-500 p-4 mt-1">
                       <p className="text-blue-100 text-[10px] font-black uppercase tracking-widest mb-1">Interest Paid So Far</p>
-                      <p className="text-white text-2xl font-black tabular-nums">{aed(mortgageInterestPaid)}</p>
-                      <div className="flex items-center justify-between mt-2">
-                        <p className="text-blue-200 text-xs">{mortgageMonthsElapsed} months × {mortgageRate}% p.a.</p>
-                        <p className="text-blue-200 text-xs">~{aed(Math.round(mortgageInterestPaid / mortgageMonthsElapsed))}/mo</p>
+                      <p className="text-white text-2xl font-black tabular-nums">{aed(mortgageCalc.interestPaid)}</p>
+                      <div className="grid grid-cols-3 gap-2 mt-3">
+                        <div className="bg-white/10 rounded-xl p-2 text-center">
+                          <p className="text-blue-100 text-[9px] font-black uppercase tracking-wide">Principal</p>
+                          <p className="text-white text-xs font-black tabular-nums mt-0.5">{aed(mortgageCalc.principalPaid)}</p>
+                        </div>
+                        <div className="bg-white/10 rounded-xl p-2 text-center">
+                          <p className="text-blue-100 text-[9px] font-black uppercase tracking-wide">Total Paid</p>
+                          <p className="text-white text-xs font-black tabular-nums mt-0.5">{aed(mortgageCalc.totalPaid)}</p>
+                        </div>
+                        <div className="bg-white/10 rounded-xl p-2 text-center">
+                          <p className="text-blue-100 text-[9px] font-black uppercase tracking-wide">Remaining</p>
+                          <p className="text-white text-xs font-black tabular-nums mt-0.5">{aed(mortgageCalc.remainingBalance)}</p>
+                        </div>
                       </div>
+                      <p className="text-blue-200 text-[10px] mt-2 text-center">{mortgagePaymentsMade} payments × {mortgageRate}% p.a.</p>
                     </div>
                   )}
 
-                  {(!mortgageStart || !mortgageRate) && (
-                    <p className="text-[11px] text-muted-foreground text-center py-2">Enter interest rate and start date to calculate</p>
+                  {!mortgageCalc.valid && (
+                    <p className="text-[11px] text-muted-foreground text-center py-2">Enter rate, monthly payment &amp; number of payments to calculate</p>
                   )}
                 </div>
               </div>
