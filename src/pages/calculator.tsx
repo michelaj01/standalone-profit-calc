@@ -287,6 +287,7 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
   const [renoItems, setRenoItems] = useState<CostItem[]>([newCostItem()]);
   const [salePrice, setSalePrice] = useState("");
   const [downPct, setDownPct]     = useState("20");
+  const [allCash, setAllCash]     = useState(false);
   const [localEditingId, setLocalEditingId] = useState<number | null>(null);
 
   // Mortgage interest tracker (informational only — does not affect profit)
@@ -315,17 +316,20 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
   const dldFeeCalc      = mouPriceN * DLD_FEE_PCT;
   const trusteeFeeCalc  = propPrice > 0 ? TRUSTEE_FEE_FLAT : 0;
   const downFrac        = Math.min(100, Math.max(0, parseFloat(downPct) || 20)) / 100;
-  const loanAmount      = bankValN * (1 - downFrac);
-  const mortgageRegCalc = loanAmount * MORTGAGE_REG_PCT;
+  const loanAmount      = allCash ? 0 : bankValN * (1 - downFrac);
+  const mortgageRegCalc = allCash ? 0 : loanAmount * MORTGAGE_REG_PCT;
 
-  const agencyFee   = agencyFeeOvr   !== null ? n(agencyFeeOvr)   : agencyFeeCalc;
+  const agencyFee   = allCash ? 0 : (agencyFeeOvr   !== null ? n(agencyFeeOvr)   : agencyFeeCalc);
   const dldFee      = dldFeeOvr      !== null ? n(dldFeeOvr)      : dldFeeCalc;
   const trusteeFee  = trusteeFeeOvr  !== null ? n(trusteeFeeOvr)  : trusteeFeeCalc;
-  const mortgageReg = mortgageRegOvr !== null ? n(mortgageRegOvr) : mortgageRegCalc;
+  const mortgageReg = allCash ? 0 : (mortgageRegOvr !== null ? n(mortgageRegOvr) : mortgageRegCalc);
 
-  const manualAcq    = propPrice > 0 ? n(bankProcFee) + n(valuationFee) + n(nocFee) + n(serviceFee) : 0;
+  // mortgage-specific manual fees (0 in all-cash mode); service fee is always separate
+  const manualAcq    = !allCash && propPrice > 0 ? n(bankProcFee) + n(valuationFee) + n(nocFee) : 0;
   const propertyBase = showAdvanced ? bankValN : propPrice;
-  const acqTotal     = propertyBase + gapPaymentN + agencyFee + dldFee + trusteeFee + mortgageReg + manualAcq;
+  const acqTotal     = allCash
+    ? propPrice + dldFee + trusteeFee + n(serviceFee)
+    : propertyBase + gapPaymentN + agencyFee + dldFee + trusteeFee + mortgageReg + manualAcq + n(serviceFee);
 
   // ── derived reno & totals ──────────────────────────────────────────────
   const renoTotal = renoItems.reduce((s, i) => s + n(i.amount), 0);
@@ -378,8 +382,10 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
     : { heroGrad: "from-emerald-500 via-emerald-500 to-emerald-600", footerBg: "bg-emerald-700", liveBg: "bg-emerald-500/15 border-emerald-400/25", liveLabel: "text-emerald-400", liveVal: "text-emerald-300" };
 
   // ── mortgage return ────────────────────────────────────────────────────
-  const downPayment    = propertyBase * downFrac;
-  const cashOut        = downPayment + gapPaymentN + agencyFee + dldFee + trusteeFee + mortgageReg + manualAcq + renoTotal;
+  const downPayment    = allCash ? 0 : propertyBase * downFrac;
+  const cashOut        = allCash
+    ? acqTotal + renoTotal
+    : downPayment + gapPaymentN + agencyFee + dldFee + trusteeFee + mortgageReg + manualAcq + n(serviceFee) + renoTotal;
   const mortgageRoiPct = cashOut > 0 ? (effectiveProfit / cashOut) * 100 : 0;
 
   // ── handlers ──────────────────────────────────────────────────────────
@@ -435,6 +441,7 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
     setMouPrice(loadData.mouPrice);
     setBankValuation(loadData.bankValuation);
     setShowAdvanced(loadData.showAdvanced);
+    setAllCash((loadData as any).allCash ?? false);
     setGapPaymentOvr(loadData.gapPaymentOvr);
     setAgencyFeeOvr(loadData.agencyFeeOvr);
     setDldFeeOvr(loadData.dldFeeOvr);
@@ -457,7 +464,7 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
 
   function resetForm() {
     setName(""); setPropertyPrice(""); setBankProcFee(""); setValuationFee(""); setNocFee(""); setServiceFee(""); setFeesPopulated(false);
-    setMouPrice(""); setBankValuation(""); setGapPaymentOvr(null); setShowAdvanced(false);
+    setMouPrice(""); setBankValuation(""); setGapPaymentOvr(null); setShowAdvanced(false); setAllCash(false);
     setAgencyFeeOvr(null); setDldFeeOvr(null); setTrusteeFeeOvr(null); setMortgageRegOvr(null);
     setRenoItems([newCostItem()]); setSalePrice(""); setDownPct("20");
     setLocalEditingId(null);
@@ -477,6 +484,7 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
         mouPrice,
         bankValuation,
         showAdvanced,
+        allCash,
         gapPaymentOvr,
         agencyFeeOvr,
         dldFeeOvr,
@@ -594,8 +602,8 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
             </div>
           </div>
 
-          {/* Advanced pricing toggle */}
-          <div className="px-4 pb-4">
+          {/* Advanced pricing toggle — hidden in all-cash mode */}
+          {!allCash && <div className="px-4 pb-4">
             <button type="button"
               onClick={() => setShowAdvanced(v => !v)}
               className="flex items-center justify-between w-full active:opacity-70 transition">
@@ -661,7 +669,7 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
                 </div>
               </div>
             )}
-          </div>
+          </div>}
 
           {/* Acquisition Fees */}
           <div className="border-t border-slate-100 dark:border-slate-700/60">
@@ -671,12 +679,12 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
 
             <div className="px-4 pb-4">
               {/* Auto-computed fees */}
-              {([
-                { key: "agencyFee",   label: "Agency Fee",    sub: showAdvanced ? "2% + 5% VAT (actual)" : "2% + 5% VAT",                                     val: agencyFee,   ovr: agencyFeeOvr,   setOvr: setAgencyFeeOvr },
-                { key: "dldFee",      label: "DLD Fee",       sub: showAdvanced && mouPrice ? "4% of MOU price" : "4%",                                         val: dldFee,      ovr: dldFeeOvr,      setOvr: setDldFeeOvr },
-                { key: "trusteeFee",  label: "Trustee Fee",   sub: "flat",                                                                                      val: trusteeFee,  ovr: trusteeFeeOvr,  setOvr: setTrusteeFeeOvr },
-                { key: "mortgageReg", label: "Mortgage Reg.", sub: showAdvanced && bankValuation ? "0.25% of bank val. loan" : "0.25% of loan",                  val: mortgageReg, ovr: mortgageRegOvr, setOvr: setMortgageRegOvr },
-              ] as const).map(({ key, label, sub, val, ovr, setOvr }) => (
+              {[
+                { key: "agencyFee",   label: "Agency Fee",    sub: showAdvanced ? "2% + 5% VAT (actual)" : "2% + 5% VAT",                                    val: agencyFee,   ovr: agencyFeeOvr,   setOvr: setAgencyFeeOvr,   hide: allCash },
+                { key: "dldFee",      label: "DLD Fee",       sub: showAdvanced && mouPrice ? "4% of MOU price" : "4%",                                        val: dldFee,      ovr: dldFeeOvr,      setOvr: setDldFeeOvr,       hide: false },
+                { key: "trusteeFee",  label: "Trustee Fee",   sub: "flat",                                                                                     val: trusteeFee,  ovr: trusteeFeeOvr,  setOvr: setTrusteeFeeOvr,   hide: false },
+                { key: "mortgageReg", label: "Mortgage Reg.", sub: showAdvanced && bankValuation ? "0.25% of bank val. loan" : "0.25% of loan",                val: mortgageReg, ovr: mortgageRegOvr, setOvr: setMortgageRegOvr,  hide: allCash },
+              ].filter(f => !f.hide).map(({ key, label, sub, val, ovr, setOvr }) => (
                 <EditableAutoRow
                   key={key}
                   label={label}
@@ -694,15 +702,14 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
                 />
               ))}
 
-              <div className="h-px bg-slate-100 dark:bg-slate-700/60 my-1" />
+              {!allCash && <div className="h-px bg-slate-100 dark:bg-slate-700/60 my-1" />}
 
-              {/* Preset fees */}
-              <div className="rounded-xl bg-slate-50 dark:bg-slate-700/30 px-1 py-1">
+              {/* Preset fees — mortgage only */}
+              {!allCash && <div className="rounded-xl bg-slate-50 dark:bg-slate-700/30 px-1 py-1">
               {([
                 { key: "bankProc",   label: "Bank Processing",   value: bankProcFee,  set: setBankProcFee },
                 { key: "valuation",  label: "Valuation Fee",     value: valuationFee, set: setValuationFee },
                 { key: "noc",        label: "NOC Fee",            value: nocFee,       set: setNocFee },
-                { key: "serviceFee", label: "Service Fee Prov.",  value: serviceFee,   set: setServiceFee },
               ] as const).map(({ key, label, value, set }) => (
                 <EditableAutoRow
                   key={key}
@@ -714,7 +721,7 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
                   onDone={() => setEditing(e => ({ ...e, [key]: false }))}
                 />
               ))}
-              </div>
+              </div>}
 
               {/* Total Acquisition */}
               <div className="mt-3 flex items-center justify-between rounded-xl bg-slate-50 dark:bg-slate-700/40 px-4 py-3 border border-slate-200/60 dark:border-slate-600/40">
@@ -815,6 +822,28 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
             </svg>
             Add cost item
           </button>
+        </div>
+
+        {/* ─────────────────────────────────────────────────────── */}
+        {/* Card: Service Fee Provision                            */}
+        {/* ─────────────────────────────────────────────────────── */}
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 shadow-sm overflow-hidden">
+          <div className="px-4 py-4 flex items-center justify-between">
+            <div>
+              <SectionLabel>Service Fee Provision</SectionLabel>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Annual maintenance — applies in all scenarios</p>
+            </div>
+            <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-700/40 border border-slate-200/60 dark:border-slate-600/40 rounded-xl px-3 py-2">
+              <span className="text-[11px] font-bold text-muted-foreground">AED</span>
+              <input
+                type="number" inputMode="decimal"
+                value={serviceFee}
+                onChange={e => setServiceFee(e.target.value)}
+                placeholder="6000"
+                className="w-24 text-right text-sm font-black text-foreground bg-transparent focus:outline-none"
+              />
+            </div>
+          </div>
         </div>
 
         {/* ─────────────────────────────────────────────────────── */}
@@ -1002,18 +1031,29 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
                 <SectionLabel>Cash Out of Pocket</SectionLabel>
                 <p className="text-[11px] text-muted-foreground mt-0.5">Every dirham you personally spend</p>
               </div>
-              <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-700/40 border border-slate-200/60 dark:border-slate-600/40 rounded-xl px-3 py-2">
-                <input
-                  type="number" inputMode="decimal" value={downPct}
-                  onChange={e => setDownPct(e.target.value)} min={1} max={100}
-                  className="w-9 text-center text-sm font-black text-foreground bg-transparent focus:outline-none"
-                />
-                <span className="text-xs font-bold text-muted-foreground">% down</span>
+              <div className="flex items-center gap-2">
+                {/* Mortgage / All Cash toggle */}
+                <button type="button"
+                  onClick={() => setAllCash(v => !v)}
+                  className={`text-xs font-bold rounded-xl px-3 py-2 border transition ${allCash ? "bg-slate-800 dark:bg-slate-100 text-white dark:text-slate-900 border-slate-800 dark:border-slate-100" : "bg-slate-50 dark:bg-slate-700/40 text-muted-foreground border-slate-200/60 dark:border-slate-600/40"}`}
+                >
+                  {allCash ? "All Cash" : "Mortgage"}
+                </button>
+                {!allCash && (
+                  <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-700/40 border border-slate-200/60 dark:border-slate-600/40 rounded-xl px-3 py-2">
+                    <input
+                      type="number" inputMode="decimal" value={downPct}
+                      onChange={e => setDownPct(e.target.value)} min={1} max={100}
+                      className="w-9 text-center text-sm font-black text-foreground bg-transparent focus:outline-none"
+                    />
+                    <span className="text-xs font-bold text-muted-foreground">% down</span>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Bank mortgage note */}
-            {propPrice > 0 && (
+            {propPrice > 0 && !allCash && (
               <div className="mx-4 mt-4 flex items-center justify-between rounded-xl bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-800/30 px-4 py-2.5">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-blue-400" />
@@ -1027,16 +1067,26 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
             <div className="px-4 pt-4 pb-2">
               <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-3">Your share — line by line</p>
 
-              {/* Down payment */}
-              <div className="flex justify-between items-center py-2.5 border-b border-slate-100 dark:border-slate-700/50">
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Down Payment</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {Math.round(downFrac * 100)}% of {showAdvanced && bankValuation ? "bank valuation" : "property price"}
-                  </p>
+              {/* Down payment (mortgage only) / Full price (all cash) */}
+              {allCash ? (
+                <div className="flex justify-between items-center py-2.5 border-b border-slate-100 dark:border-slate-700/50">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Full Purchase Price</p>
+                    <p className="text-[11px] text-muted-foreground">paid entirely in cash</p>
+                  </div>
+                  <span className="text-sm font-bold text-foreground tabular-nums">{aed(propPrice)}</span>
                 </div>
-                <span className="text-sm font-bold text-foreground tabular-nums">{aed(downPayment)}</span>
-              </div>
+              ) : (
+                <div className="flex justify-between items-center py-2.5 border-b border-slate-100 dark:border-slate-700/50">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Down Payment</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {Math.round(downFrac * 100)}% of {showAdvanced && bankValuation ? "bank valuation" : "property price"}
+                    </p>
+                  </div>
+                  <span className="text-sm font-bold text-foreground tabular-nums">{aed(downPayment)}</span>
+                </div>
+              )}
 
               {/* Gap payment */}
               {gapPaymentN > 0 && (
@@ -1051,13 +1101,13 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
 
               {/* Acquisition fees */}
               {[
-                { label: "Agency Fee",        sub: "2% + 5% VAT",       val: agencyFee,       show: propPrice > 0 },
+                { label: "Agency Fee",        sub: "2% + 5% VAT",       val: agencyFee,       show: propPrice > 0 && !allCash },
                 { label: "DLD Fee",           sub: "4% of price",        val: dldFee,          show: propPrice > 0 },
                 { label: "Trustee Fee",       sub: "flat DLD fee",       val: trusteeFee,      show: propPrice > 0 },
-                { label: "Mortgage Reg.",     sub: "0.25% of loan",      val: mortgageReg,     show: propPrice > 0 },
-                { label: "Bank Processing",   sub: "bank charge",        val: n(bankProcFee),  show: n(bankProcFee) > 0 },
-                { label: "Valuation Fee",     sub: "bank valuation",     val: n(valuationFee), show: n(valuationFee) > 0 },
-                { label: "NOC Fee",           sub: "developer fee",      val: n(nocFee),       show: n(nocFee) > 0 },
+                { label: "Mortgage Reg.",     sub: "0.25% of loan",      val: mortgageReg,     show: propPrice > 0 && !allCash },
+                { label: "Bank Processing",   sub: "bank charge",        val: n(bankProcFee),  show: n(bankProcFee) > 0 && !allCash },
+                { label: "Valuation Fee",     sub: "bank valuation",     val: n(valuationFee), show: n(valuationFee) > 0 && !allCash },
+                { label: "NOC Fee",           sub: "developer fee",      val: n(nocFee),       show: n(nocFee) > 0 && !allCash },
                 { label: "Service Fee Prov.", sub: "maintenance est.",   val: n(serviceFee),   show: n(serviceFee) > 0 },
               ].filter(r => r.show).map(({ label, sub, val }) => (
                 <div key={label} className="flex justify-between items-center py-2.5 border-b border-slate-100 dark:border-slate-700/50">
