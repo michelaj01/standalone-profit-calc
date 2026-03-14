@@ -366,6 +366,16 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
   const profitable = effectiveProfit >= 0;
   const activeTier = hasBoth ? getActiveTier(effectiveProfit) : null;
 
+  // ── tier-based colour theming ──────────────────────────────────────────
+  const isBreakevenOrLoss = !profitable || activeTier === "Breakeven" || activeTier === null;
+  const tierTheme = isBreakevenOrLoss
+    ? { heroGrad: "from-red-500 via-red-500 to-red-600",     footerBg: "bg-red-700",     liveBg: "bg-red-500/15 border-red-400/25",       liveLabel: "text-red-400",     liveVal: "text-red-300"     }
+    : activeTier === "Conservative"
+    ? { heroGrad: "from-blue-500 via-blue-500 to-blue-600",  footerBg: "bg-blue-700",    liveBg: "bg-blue-500/15 border-blue-400/25",     liveLabel: "text-blue-400",    liveVal: "text-blue-300"    }
+    : activeTier === "Moderate"
+    ? { heroGrad: "from-amber-400 via-amber-500 to-amber-500", footerBg: "bg-amber-600", liveBg: "bg-amber-500/15 border-amber-400/25",   liveLabel: "text-amber-400",   liveVal: "text-amber-300"   }
+    : { heroGrad: "from-emerald-500 via-emerald-500 to-emerald-600", footerBg: "bg-emerald-700", liveBg: "bg-emerald-500/15 border-emerald-400/25", liveLabel: "text-emerald-400", liveVal: "text-emerald-300" };
+
   // ── mortgage return ────────────────────────────────────────────────────
   const downPayment    = propertyBase * downFrac;
   const cashOut        = downPayment + gapPaymentN + agencyFee + dldFee + trusteeFee + mortgageReg + manualAcq + renoTotal;
@@ -527,25 +537,21 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
 
           {/* Live profit preview */}
           {hasBoth && (
-            <div className={`mt-5 rounded-2xl p-4 border ${
-              profitable
-                ? "bg-emerald-500/15 border-emerald-400/25"
-                : "bg-red-500/15 border-red-400/25"
-            }`}>
-              <p className={`text-[10px] font-black uppercase tracking-[0.2em] ${profitable ? "text-emerald-400" : "text-red-400"}`}>
+            <div className={`mt-5 rounded-2xl p-4 border ${tierTheme.liveBg}`}>
+              <p className={`text-[10px] font-black uppercase tracking-[0.2em] ${tierTheme.liveLabel}`}>
                 {profitable ? "Live Profit" : "Loss"}
               </p>
-              <p className={`text-3xl font-black tabular-nums mt-1 ${profitable ? "text-emerald-300" : "text-red-300"}`}>
+              <p className={`text-3xl font-black tabular-nums mt-1 ${tierTheme.liveVal}`}>
                 {profitable
                   ? aed(effectiveProfit)
                   : `−AED ${Math.abs(effectiveProfit).toLocaleString("en-AE", { maximumFractionDigits: 0 })}`}
               </p>
               <div className="flex gap-3 mt-2">
-                <span className={`text-sm font-bold tabular-nums ${profitable ? "text-emerald-400" : "text-red-400"}`}>
+                <span className={`text-sm font-bold tabular-nums ${tierTheme.liveLabel}`}>
                   ROI {pct(roi)}
                 </span>
                 <span className="text-white/20 font-bold">·</span>
-                <span className={`text-sm font-bold tabular-nums ${profitable ? "text-emerald-400" : "text-red-400"}`}>
+                <span className={`text-sm font-bold tabular-nums ${tierTheme.liveLabel}`}>
                   Cash-on-Cash {pct(mortgageRoiPct)}
                 </span>
               </div>
@@ -878,9 +884,7 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
           <div className="rounded-2xl overflow-hidden shadow-xl">
 
             {/* Main gradient */}
-            <div className={`px-5 py-6 ${profitable
-              ? "bg-gradient-to-br from-emerald-500 via-emerald-500 to-emerald-600"
-              : "bg-gradient-to-br from-red-500 via-red-500 to-red-600"}`}>
+            <div className={`px-5 py-6 bg-gradient-to-br ${tierTheme.heroGrad}`}>
               <p className="text-white/60 text-[10px] font-black uppercase tracking-[0.2em]">
                 {profitable ? "Your Profit" : "Your Loss"}
               </p>
@@ -906,7 +910,7 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
             </div>
 
             {/* Footer strip */}
-            <div className={`flex px-5 py-3 ${profitable ? "bg-emerald-700" : "bg-red-700"}`}>
+            <div className={`flex px-5 py-3 ${tierTheme.footerBg}`}>
               <div className="flex-1">
                 <p className="text-white/50 text-[9px] font-black uppercase tracking-widest">Sale Price</p>
                 <p className="text-white text-sm font-black tabular-nums mt-0.5">{aed(sale)}</p>
