@@ -295,6 +295,8 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
   const [mortgageMonthlyPayment,  setMortgageMonthlyPayment]  = useState("");
   const [mortgagePaymentsMade,    setMortgagePaymentsMade]    = useState("");
   const [deductMortgageInterest,  setDeductMortgageInterest]  = useState(false);
+  const [deductEarlyClosurePenalty, setDeductEarlyClosurePenalty] = useState(false);
+  const [deductSellerAgencyFee,   setDeductSellerAgencyFee]   = useState(false);
 
   const { toast } = useToast();
   const createItem = useCreateItem();
@@ -347,10 +349,15 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
     return { valid: true, interestPaid, principalPaid, totalPaid, remainingBalance: remaining };
   })();
 
-  // Effective profit — optionally subtracts interest paid from mortgage tracker
-  const effectiveProfit = (deductMortgageInterest && mortgageCalc.valid)
-    ? profit - mortgageCalc.interestPaid
-    : profit;
+  // ── selling cost deductions ───────────────────────────────────────────
+  const EARLY_CLOSURE_PENALTY = 10_500;               // AED 10,000 + 5% VAT
+  const sellerAgencyFee       = sale * 0.02 * 1.05;  // 2% of sale + 5% VAT
+
+  // Effective profit — optionally subtracts selected exit costs
+  const effectiveProfit = profit
+    - (deductMortgageInterest && mortgageCalc.valid ? mortgageCalc.interestPaid : 0)
+    - (deductEarlyClosurePenalty ? EARLY_CLOSURE_PENALTY : 0)
+    - (deductSellerAgencyFee ? sellerAgencyFee : 0);
 
   const profitPct  = totalCost ? (effectiveProfit / totalCost) * 100 : 0;
   const roi        = totalCost ? (effectiveProfit / totalCost) * 100 : 0;
@@ -825,7 +832,30 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
               className="w-full rounded-2xl border-2 border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 pl-16 pr-4 py-4 text-2xl font-black text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary transition"
             />
           </div>
-          <p className="text-xs text-muted-foreground mt-1.5 mb-4">Target selling price</p>
+          <p className="text-xs text-muted-foreground mt-1.5 mb-3">Target selling price</p>
+
+          {/* Seller agency fee toggle */}
+          {sale > 0 && (
+            <button
+              type="button"
+              onClick={() => setDeductSellerAgencyFee(v => !v)}
+              className={`w-full flex items-center justify-between rounded-xl border px-3 py-2.5 mb-3 transition ${
+                deductSellerAgencyFee
+                  ? "bg-amber-50 dark:bg-amber-900/30 border-amber-300 dark:border-amber-700"
+                  : "bg-slate-50 dark:bg-slate-700/40 border-slate-200 dark:border-slate-600/40"
+              }`}
+            >
+              <div className="text-left">
+                <span className={`text-[11px] font-black uppercase tracking-wide block ${deductSellerAgencyFee ? "text-amber-700 dark:text-amber-300" : "text-muted-foreground"}`}>
+                  Seller Agency Fee (2% + VAT)
+                </span>
+                <span className="text-[10px] text-muted-foreground">{aed(sellerAgencyFee)} deducted from profit</span>
+              </div>
+              <div className={`w-9 h-5 rounded-full relative transition-colors flex-shrink-0 ${deductSellerAgencyFee ? "bg-amber-400" : "bg-slate-300 dark:bg-slate-600"}`}>
+                <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${deductSellerAgencyFee ? "translate-x-4" : "translate-x-0.5"}`} />
+              </div>
+            </button>
+          )}
 
           <button type="button" onClick={handleSave} disabled={createItem.isPending || updateItem.isPending}
             className="w-full bg-primary text-primary-foreground rounded-2xl py-4 text-sm font-black tracking-wide active:opacity-90 transition disabled:opacity-50 shadow-lg shadow-primary/20">
@@ -1185,9 +1215,26 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
                           deductMortgageInterest ? "bg-white/20" : "bg-white/10"
                         }`}
                       >
-                        <span className="text-white text-[11px] font-black uppercase tracking-wide">Deduct from Profit</span>
+                        <span className="text-white text-[11px] font-black uppercase tracking-wide">Deduct Interest from Profit</span>
                         <div className={`w-9 h-5 rounded-full relative transition-colors ${deductMortgageInterest ? "bg-emerald-400" : "bg-white/30"}`}>
                           <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${deductMortgageInterest ? "translate-x-4" : "translate-x-0.5"}`} />
+                        </div>
+                      </button>
+
+                      {/* Early closure penalty toggle */}
+                      <button
+                        type="button"
+                        onClick={() => setDeductEarlyClosurePenalty(v => !v)}
+                        className={`mt-2 w-full flex items-center justify-between rounded-xl px-3 py-2.5 transition ${
+                          deductEarlyClosurePenalty ? "bg-white/20" : "bg-white/10"
+                        }`}
+                      >
+                        <div className="text-left">
+                          <span className="text-white text-[11px] font-black uppercase tracking-wide block">Early Closure Penalty</span>
+                          <span className="text-blue-200 text-[10px]">AED 10,500 incl. VAT</span>
+                        </div>
+                        <div className={`w-9 h-5 rounded-full relative transition-colors flex-shrink-0 ${deductEarlyClosurePenalty ? "bg-emerald-400" : "bg-white/30"}`}>
+                          <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${deductEarlyClosurePenalty ? "translate-x-4" : "translate-x-0.5"}`} />
                         </div>
                       </button>
                     </div>
