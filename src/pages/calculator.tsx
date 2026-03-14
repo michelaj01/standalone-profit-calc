@@ -294,6 +294,7 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
   const [mortgageRate,            setMortgageRate]            = useState("");
   const [mortgageMonthlyPayment,  setMortgageMonthlyPayment]  = useState("");
   const [mortgagePaymentsMade,    setMortgagePaymentsMade]    = useState("");
+  const [deductMortgageInterest,  setDeductMortgageInterest]  = useState(false);
 
   const { toast } = useToast();
   const createItem = useCreateItem();
@@ -325,37 +326,43 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
   const acqTotal     = propertyBase + gapPaymentN + agencyFee + dldFee + trusteeFee + mortgageReg + manualAcq;
 
   // ── derived reno & totals ──────────────────────────────────────────────
-  const renoTotal  = renoItems.reduce((s, i) => s + n(i.amount), 0);
-  const totalCost  = acqTotal + renoTotal;
-  const sale       = n(salePrice);
-  const profit     = sale - totalCost;
-  const profitPct  = totalCost ? (profit / totalCost) * 100 : 0;
-  const roi        = totalCost ? (profit / totalCost) * 100 : 0;
-  const hasCosts   = totalCost > 0;
-  const hasBoth    = hasCosts && sale > 0;
-  const profitable = profit >= 0;
-  const activeTier = hasBoth ? getActiveTier(profit) : null;
+  const renoTotal = renoItems.reduce((s, i) => s + n(i.amount), 0);
+  const totalCost = acqTotal + renoTotal;
+  const sale      = n(salePrice);
+  const profit    = sale - totalCost;   // raw, before interest deduction
 
-  // ── mortgage return ────────────────────────────────────────────────────
-  const downPayment    = propertyBase * downFrac;
-  const cashOut        = downPayment + gapPaymentN + agencyFee + dldFee + trusteeFee + mortgageReg + manualAcq + renoTotal;
-  const mortgageRoiPct = cashOut > 0 ? (profit / cashOut) * 100 : 0;
-
-  // ── mortgage interest tracker — amortization-based (informational) ────
+  // ── mortgage interest tracker — amortization-based ────────────────────
   const mortgageCalc = (() => {
     const N       = parseInt(mortgagePaymentsMade) || 0;
     const P       = n(mortgageMonthlyPayment);
     const annRate = parseFloat(mortgageRate) || 0;
     if (!showMortgageTracker || annRate <= 0 || N <= 0 || P <= 0 || loanAmount <= 0)
       return { valid: false, interestPaid: 0, principalPaid: 0, totalPaid: 0, remainingBalance: loanAmount };
-    const r       = annRate / 100 / 12;
-    const factor  = Math.pow(1 + r, N);
-    const remaining   = Math.max(0, loanAmount * factor - P * (factor - 1) / r);
-    const totalPaid   = P * N;
+    const r             = annRate / 100 / 12;
+    const factor        = Math.pow(1 + r, N);
+    const remaining     = Math.max(0, loanAmount * factor - P * (factor - 1) / r);
+    const totalPaid     = P * N;
     const principalPaid = Math.max(0, loanAmount - remaining);
     const interestPaid  = Math.max(0, totalPaid - principalPaid);
     return { valid: true, interestPaid, principalPaid, totalPaid, remainingBalance: remaining };
   })();
+
+  // Effective profit — optionally subtracts interest paid from mortgage tracker
+  const effectiveProfit = (deductMortgageInterest && mortgageCalc.valid)
+    ? profit - mortgageCalc.interestPaid
+    : profit;
+
+  const profitPct  = totalCost ? (effectiveProfit / totalCost) * 100 : 0;
+  const roi        = totalCost ? (effectiveProfit / totalCost) * 100 : 0;
+  const hasCosts   = totalCost > 0;
+  const hasBoth    = hasCosts && sale > 0;
+  const profitable = effectiveProfit >= 0;
+  const activeTier = hasBoth ? getActiveTier(effectiveProfit) : null;
+
+  // ── mortgage return ────────────────────────────────────────────────────
+  const downPayment    = propertyBase * downFrac;
+  const cashOut        = downPayment + gapPaymentN + agencyFee + dldFee + trusteeFee + mortgageReg + manualAcq + renoTotal;
+  const mortgageRoiPct = cashOut > 0 ? (effectiveProfit / cashOut) * 100 : 0;
 
   // ── handlers ──────────────────────────────────────────────────────────
   const updateRenoItem = useCallback((id: string, patch: Partial<CostItem>) =>
@@ -523,8 +530,8 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
               </p>
               <p className={`text-3xl font-black tabular-nums mt-1 ${profitable ? "text-emerald-300" : "text-red-300"}`}>
                 {profitable
-                  ? aed(profit)
-                  : `−AED ${Math.abs(profit).toLocaleString("en-AE", { maximumFractionDigits: 0 })}`}
+                  ? aed(effectiveProfit)
+                  : `−AED ${Math.abs(effectiveProfit).toLocaleString("en-AE", { maximumFractionDigits: 0 })}`}
               </p>
               <div className="flex gap-3 mt-2">
                 <span className={`text-sm font-bold tabular-nums ${profitable ? "text-emerald-400" : "text-red-400"}`}>
@@ -849,8 +856,8 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
               </p>
               <p className="text-4xl font-black text-white tabular-nums mt-1 leading-none">
                 {profitable
-                  ? aed(profit)
-                  : `−AED ${Math.abs(profit).toLocaleString("en-AE", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+                  ? aed(effectiveProfit)
+                  : `−AED ${Math.abs(effectiveProfit).toLocaleString("en-AE", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
               </p>
 
               {/* ROI metrics */}
@@ -896,7 +903,7 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
                 const tierProfit     = tier.targetProfit;
                 const tierProfitPct  = totalCost ? (tierProfit / totalCost) * 100 : 0;
                 const isActive       = activeTier === tier.label;
-                const displayProfit    = isActive ? profit    : tierProfit;
+                const displayProfit    = isActive ? effectiveProfit : tierProfit;
                 const displayProfitPct = isActive ? profitPct : tierProfitPct;
                 const displayPositive  = displayProfit > 0;
 
@@ -1056,7 +1063,7 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
                   <div>
                     <p className="text-xs text-muted-foreground mb-0.5">Profit</p>
                     <p className={`text-2xl font-black tabular-nums ${profitable ? "text-primary" : "text-destructive"}`}>
-                      {aedSigned(profit)}
+                      {aedSigned(effectiveProfit)}
                     </p>
                   </div>
                   <div className="text-right">
@@ -1169,6 +1176,20 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
                         </div>
                       </div>
                       <p className="text-blue-200 text-[10px] mt-2 text-center">{mortgagePaymentsMade} payments × {mortgageRate}% p.a.</p>
+
+                      {/* Deduct from profit toggle */}
+                      <button
+                        type="button"
+                        onClick={() => setDeductMortgageInterest(v => !v)}
+                        className={`mt-3 w-full flex items-center justify-between rounded-xl px-3 py-2.5 transition ${
+                          deductMortgageInterest ? "bg-white/20" : "bg-white/10"
+                        }`}
+                      >
+                        <span className="text-white text-[11px] font-black uppercase tracking-wide">Deduct from Profit</span>
+                        <div className={`w-9 h-5 rounded-full relative transition-colors ${deductMortgageInterest ? "bg-emerald-400" : "bg-white/30"}`}>
+                          <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${deductMortgageInterest ? "translate-x-4" : "translate-x-0.5"}`} />
+                        </div>
+                      </button>
                     </div>
                   )}
 
