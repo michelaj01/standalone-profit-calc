@@ -25,7 +25,10 @@ export interface RawInputs {
   bankProcFee: string;
   valuationFee: string;
   nocFee: string;
-  serviceFee: string;
+  serviceFeeToSeller: string;
+  serviceFeeToDev: string;
+  includeServiceFee: boolean;
+  sellerNocFee: string;
   downPaymentPct: string;
   renoItems: CostItem[];
   salePrice: string;
