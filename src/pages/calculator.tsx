@@ -25,7 +25,7 @@ function aed(val: number): string {
 }
 
 function aedSigned(val: number): string {
-  const sign = val > 0 ? "+" : val < 0 ? "−" : "";
+  const sign = val < 0 ? "−" : "";
   return `${sign}AED ${Math.abs(val).toLocaleString("en-AE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
