@@ -49,10 +49,10 @@ const DEFAULTS = {
 } as const;
 
 const TIERS = [
-  { label: "Breakeven",    minProfit: 0,       maxProfit: 300_000,  targetProfit: 0,       color: "text-slate-500",   activeColor: "text-slate-700", bg: "bg-slate-50 dark:bg-slate-800/40",   activeBg: "bg-slate-100 dark:bg-slate-800",           ring: "ring-slate-400",  desc: "Zero profit" },
-  { label: "Conservative", minProfit: 300_000, maxProfit: 500_000,  targetProfit: 300_000, color: "text-blue-500",    activeColor: "text-blue-600",  bg: "bg-blue-50 dark:bg-blue-950/40",     activeBg: "bg-blue-100 dark:bg-blue-900/60",          ring: "ring-blue-500",   desc: "AED 300K profit" },
-  { label: "Moderate",     minProfit: 500_000, maxProfit: 800_000,  targetProfit: 500_000, color: "text-emerald-600", activeColor: "text-emerald-700", bg: "bg-green-50 dark:bg-green-950/40", activeBg: "bg-emerald-100 dark:bg-emerald-900/60",    ring: "ring-emerald-500", desc: "AED 500K profit" },
-  { label: "Ambitious",    minProfit: 800_000, maxProfit: Infinity, targetProfit: 800_000, color: "text-amber-500",   activeColor: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-950/40",   activeBg: "bg-amber-100 dark:bg-amber-900/60",        ring: "ring-amber-500",  desc: "AED 800K profit" },
+  { label: "Breakeven",    minProfit: 0,       maxProfit: 1,        targetProfit: 0,       color: "text-slate-500",   activeColor: "text-slate-700",   bg: "bg-slate-50 dark:bg-slate-800/40",   activeBg: "bg-slate-100 dark:bg-slate-800",         ring: "ring-slate-400",   desc: "Zero profit"     },
+  { label: "Conservative", minProfit: 1,       maxProfit: 500_000,  targetProfit: 300_000, color: "text-blue-500",    activeColor: "text-blue-600",    bg: "bg-blue-50 dark:bg-blue-950/40",     activeBg: "bg-blue-100 dark:bg-blue-900/60",        ring: "ring-blue-500",    desc: "AED 300K profit" },
+  { label: "Moderate",     minProfit: 500_000, maxProfit: 700_000,  targetProfit: 500_000, color: "text-amber-500",   activeColor: "text-amber-600",   bg: "bg-amber-50 dark:bg-amber-950/40",   activeBg: "bg-amber-100 dark:bg-amber-900/60",      ring: "ring-amber-500",   desc: "AED 500K profit" },
+  { label: "Ambitious",    minProfit: 700_000, maxProfit: Infinity, targetProfit: 700_000, color: "text-emerald-600", activeColor: "text-emerald-700", bg: "bg-green-50 dark:bg-green-950/40",   activeBg: "bg-emerald-100 dark:bg-emerald-900/60",  ring: "ring-emerald-500", desc: "AED 700K profit" },
 ];
 
 function getActiveTier(profit: number): string | null {
@@ -367,13 +367,14 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
   const activeTier = hasBoth ? getActiveTier(effectiveProfit) : null;
 
   // ── tier-based colour theming ──────────────────────────────────────────
-  const isBreakevenOrLoss = !profitable || activeTier === "Breakeven" || activeTier === null;
-  const tierTheme = isBreakevenOrLoss
-    ? { heroGrad: "from-red-500 via-red-500 to-red-600",     footerBg: "bg-red-700",     liveBg: "bg-red-500/15 border-red-400/25",       liveLabel: "text-red-400",     liveVal: "text-red-300"     }
+  const tierTheme = !profitable || activeTier === null
+    ? { heroGrad: "from-red-500 via-red-500 to-red-600",           footerBg: "bg-red-700",     liveBg: "bg-red-500/15 border-red-400/25",           liveLabel: "text-red-400",     liveVal: "text-red-300"     }
+    : activeTier === "Breakeven"
+    ? { heroGrad: "from-slate-500 via-slate-500 to-slate-600",     footerBg: "bg-slate-700",   liveBg: "bg-slate-500/15 border-slate-400/25",       liveLabel: "text-slate-400",   liveVal: "text-slate-300"   }
     : activeTier === "Conservative"
-    ? { heroGrad: "from-blue-500 via-blue-500 to-blue-600",  footerBg: "bg-blue-700",    liveBg: "bg-blue-500/15 border-blue-400/25",     liveLabel: "text-blue-400",    liveVal: "text-blue-300"    }
+    ? { heroGrad: "from-blue-500 via-blue-500 to-blue-600",        footerBg: "bg-blue-700",    liveBg: "bg-blue-500/15 border-blue-400/25",         liveLabel: "text-blue-400",    liveVal: "text-blue-300"    }
     : activeTier === "Moderate"
-    ? { heroGrad: "from-amber-400 via-amber-500 to-amber-500", footerBg: "bg-amber-600", liveBg: "bg-amber-500/15 border-amber-400/25",   liveLabel: "text-amber-400",   liveVal: "text-amber-300"   }
+    ? { heroGrad: "from-amber-400 via-amber-500 to-amber-500",     footerBg: "bg-amber-600",   liveBg: "bg-amber-500/15 border-amber-400/25",       liveLabel: "text-amber-400",   liveVal: "text-amber-300"   }
     : { heroGrad: "from-emerald-500 via-emerald-500 to-emerald-600", footerBg: "bg-emerald-700", liveBg: "bg-emerald-500/15 border-emerald-400/25", liveLabel: "text-emerald-400", liveVal: "text-emerald-300" };
 
   // ── mortgage return ────────────────────────────────────────────────────
