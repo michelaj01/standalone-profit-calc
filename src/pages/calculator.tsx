@@ -163,7 +163,7 @@ function ScanButton({ scanning, onClick }: { scanning: boolean; onClick: () => v
 // ─── editable row ──────────────────────────────────────────────────────────
 
 function EditableAutoRow({
-  label, sub, value, onChange, isEditing, onEdit, onDone, onReset, isOverridden,
+  label, sub, value, onChange, isEditing, onEdit, onDone, onReset, isOverridden, enabled, onToggle,
 }: {
   label: string;
   sub?: string;
@@ -174,15 +174,19 @@ function EditableAutoRow({
   onDone: () => void;
   onReset?: () => void;
   isOverridden?: boolean;
+  enabled?: boolean;
+  onToggle?: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const isDisabled = enabled === false;
 
   function startEdit() {
+    if (isDisabled) return;
     onEdit();
     setTimeout(() => inputRef.current?.focus(), 50);
   }
 
-  if (isEditing) {
+  if (isEditing && !isDisabled) {
     return (
       <div className="flex items-center justify-between gap-2 py-2.5">
         {label && (
@@ -224,21 +228,31 @@ function EditableAutoRow({
   return (
     <div className="flex items-center justify-between py-2.5 gap-2">
       <div className="flex items-center gap-2 min-w-0 flex-1">
-        <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isOverridden ? "bg-amber-400" : "bg-emerald-400"}`} />
+        <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isDisabled ? "bg-slate-300 dark:bg-slate-600" : isOverridden ? "bg-amber-400" : "bg-emerald-400"}`} />
         <div className="flex flex-wrap items-baseline gap-x-1.5 min-w-0">
-          {label && <span className="text-sm text-foreground whitespace-nowrap">{label}</span>}
-          {sub && !isOverridden && <span className="text-[11px] text-muted-foreground whitespace-nowrap">{sub}</span>}
-          {isOverridden && <span className="text-[10px] font-bold text-amber-500 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded-full">edited</span>}
+          {label && <span className={`text-sm whitespace-nowrap ${isDisabled ? "text-muted-foreground line-through" : "text-foreground"}`}>{label}</span>}
+          {sub && !isOverridden && !isDisabled && <span className="text-[11px] text-muted-foreground whitespace-nowrap">{sub}</span>}
+          {isOverridden && !isDisabled && <span className="text-[10px] font-bold text-amber-500 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded-full">edited</span>}
         </div>
       </div>
       <div className="flex items-center gap-1.5 shrink-0">
-        <span className="text-sm font-semibold tabular-nums text-foreground text-right">{aed(n(value))}</span>
-        <button type="button" onClick={startEdit}
-          className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground active:opacity-70 transition" title="Edit">
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-          </svg>
-        </button>
+        <span className={`text-sm font-semibold tabular-nums text-right ${isDisabled ? "text-muted-foreground" : "text-foreground"}`}>
+          {isDisabled ? "AED 0" : aed(n(value))}
+        </span>
+        {onToggle && (
+          <button type="button" onClick={onToggle}
+            className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors ${!isDisabled ? "bg-primary" : "bg-slate-200 dark:bg-slate-600"}`}>
+            <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ${!isDisabled ? "translate-x-4" : "translate-x-0"}`} />
+          </button>
+        )}
+        {!isDisabled && (
+          <button type="button" onClick={startEdit}
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground active:opacity-70 transition" title="Edit">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+          </button>
+        )}
       </div>
     </div>
   );
@@ -287,7 +301,8 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
   const [renoItems, setRenoItems] = useState<CostItem[]>([newCostItem()]);
   const [salePrice, setSalePrice] = useState("");
   const [downPct, setDownPct]     = useState("20");
-  const [allCash, setAllCash]     = useState(false);
+  const [allCash, setAllCash]           = useState(false);
+  const [includeAgencyFee, setIncludeAgencyFee] = useState(true);
   const [localEditingId, setLocalEditingId] = useState<number | null>(null);
 
   // Mortgage interest tracker (informational only — does not affect profit)
@@ -319,7 +334,7 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
   const loanAmount      = allCash ? 0 : bankValN * (1 - downFrac);
   const mortgageRegCalc = allCash ? 0 : loanAmount * MORTGAGE_REG_PCT;
 
-  const agencyFee   = allCash ? 0 : (agencyFeeOvr   !== null ? n(agencyFeeOvr)   : agencyFeeCalc);
+  const agencyFee   = (allCash || !includeAgencyFee) ? 0 : (agencyFeeOvr !== null ? n(agencyFeeOvr) : agencyFeeCalc);
   const dldFee      = dldFeeOvr      !== null ? n(dldFeeOvr)      : dldFeeCalc;
   const trusteeFee  = trusteeFeeOvr  !== null ? n(trusteeFeeOvr)  : trusteeFeeCalc;
   const mortgageReg = allCash ? 0 : (mortgageRegOvr !== null ? n(mortgageRegOvr) : mortgageRegCalc);
@@ -442,6 +457,7 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
     setBankValuation(loadData.bankValuation);
     setShowAdvanced(loadData.showAdvanced);
     setAllCash((loadData as any).allCash ?? false);
+    setIncludeAgencyFee((loadData as any).includeAgencyFee ?? true);
     setGapPaymentOvr(loadData.gapPaymentOvr);
     setAgencyFeeOvr(loadData.agencyFeeOvr);
     setDldFeeOvr(loadData.dldFeeOvr);
@@ -464,7 +480,7 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
 
   function resetForm() {
     setName(""); setPropertyPrice(""); setBankProcFee(""); setValuationFee(""); setNocFee(""); setServiceFee(""); setFeesPopulated(false);
-    setMouPrice(""); setBankValuation(""); setGapPaymentOvr(null); setShowAdvanced(false); setAllCash(false);
+    setMouPrice(""); setBankValuation(""); setGapPaymentOvr(null); setShowAdvanced(false); setAllCash(false); setIncludeAgencyFee(true);
     setAgencyFeeOvr(null); setDldFeeOvr(null); setTrusteeFeeOvr(null); setMortgageRegOvr(null);
     setRenoItems([newCostItem()]); setSalePrice(""); setDownPct("20");
     setLocalEditingId(null);
@@ -485,6 +501,7 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
         bankValuation,
         showAdvanced,
         allCash,
+        includeAgencyFee,
         gapPaymentOvr,
         agencyFeeOvr,
         dldFeeOvr,
@@ -680,11 +697,11 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
             <div className="px-4 pb-4">
               {/* Auto-computed fees */}
               {[
-                { key: "agencyFee",   label: "Agency Fee",    sub: showAdvanced ? "2% + 5% VAT (actual)" : "2% + 5% VAT",                                    val: agencyFee,   ovr: agencyFeeOvr,   setOvr: setAgencyFeeOvr,   hide: allCash },
-                { key: "dldFee",      label: "DLD Fee",       sub: showAdvanced && mouPrice ? "4% of MOU price" : "4%",                                        val: dldFee,      ovr: dldFeeOvr,      setOvr: setDldFeeOvr,       hide: false },
-                { key: "trusteeFee",  label: "Trustee Fee",   sub: "flat",                                                                                     val: trusteeFee,  ovr: trusteeFeeOvr,  setOvr: setTrusteeFeeOvr,   hide: false },
-                { key: "mortgageReg", label: "Mortgage Reg.", sub: showAdvanced && bankValuation ? "0.25% of bank val. loan" : "0.25% of loan",                val: mortgageReg, ovr: mortgageRegOvr, setOvr: setMortgageRegOvr,  hide: allCash },
-              ].filter(f => !f.hide).map(({ key, label, sub, val, ovr, setOvr }) => (
+                { key: "agencyFee",   label: "Agency Fee",    sub: showAdvanced ? "2% + 5% VAT (actual)" : "2% + 5% VAT",                                    val: agencyFee,   ovr: agencyFeeOvr,   setOvr: setAgencyFeeOvr,   hide: allCash, toggleable: true },
+                { key: "dldFee",      label: "DLD Fee",       sub: showAdvanced && mouPrice ? "4% of MOU price" : "4%",                                        val: dldFee,      ovr: dldFeeOvr,      setOvr: setDldFeeOvr,       hide: false,   toggleable: false },
+                { key: "trusteeFee",  label: "Trustee Fee",   sub: "flat",                                                                                     val: trusteeFee,  ovr: trusteeFeeOvr,  setOvr: setTrusteeFeeOvr,   hide: false,   toggleable: false },
+                { key: "mortgageReg", label: "Mortgage Reg.", sub: showAdvanced && bankValuation ? "0.25% of bank val. loan" : "0.25% of loan",                val: mortgageReg, ovr: mortgageRegOvr, setOvr: setMortgageRegOvr,  hide: allCash, toggleable: false },
+              ].filter(f => !f.hide).map(({ key, label, sub, val, ovr, setOvr, toggleable }) => (
                 <EditableAutoRow
                   key={key}
                   label={label}
@@ -699,6 +716,8 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
                   onDone={() => setEditing(e => ({ ...e, [key]: false }))}
                   onReset={() => setOvr(null)}
                   isOverridden={ovr !== null}
+                  enabled={toggleable ? includeAgencyFee : undefined}
+                  onToggle={toggleable ? () => setIncludeAgencyFee(v => !v) : undefined}
                 />
               ))}
 
@@ -1101,7 +1120,7 @@ export default function Calculator({ loadData, editingId, onLoadComplete }: { lo
 
               {/* Acquisition fees */}
               {[
-                { label: "Agency Fee",        sub: "2% + 5% VAT",       val: agencyFee,       show: propPrice > 0 && !allCash },
+                { label: "Agency Fee",        sub: "2% + 5% VAT",       val: agencyFee,       show: propPrice > 0 && !allCash && includeAgencyFee },
                 { label: "DLD Fee",           sub: "4% of price",        val: dldFee,          show: propPrice > 0 },
                 { label: "Trustee Fee",       sub: "flat DLD fee",       val: trusteeFee,      show: propPrice > 0 },
                 { label: "Mortgage Reg.",     sub: "0.25% of loan",      val: mortgageReg,     show: propPrice > 0 && !allCash },
